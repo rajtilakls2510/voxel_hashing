@@ -25,7 +25,10 @@ int main(int argc, char *argv[])
     std::cout << "\n";
 
     float voxel_value = b_h->getVoxel(Index3D(0, 0, 1));
-    std::cout << "Voxel Value: " << voxel_value << "\n";
+    std::cout << "Voxel Value before clearing: " << voxel_value << "\n";
+    b_h->clear();
+    voxel_value = b_h->getVoxel(Index3D(0, 0, 1));
+    std::cout << " Voxel Value after clearing: " << voxel_value << "\n";
 
     float *ptr = b.release();
     cudaFree(ptr);

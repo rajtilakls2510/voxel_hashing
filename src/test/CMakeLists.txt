@@ -13,3 +13,6 @@ target_link_libraries(test_tsdf_block_voxels PUBLIC voxhash)
 
 add_executable(test_semantic_block_voxels test_semantic_block_voxels.cu)
 target_link_libraries(test_semantic_block_voxels PUBLIC voxhash)
+
+add_executable(test_pool test_pool.cu)
+target_link_libraries(test_pool PUBLIC voxhash)

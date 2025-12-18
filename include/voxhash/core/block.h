@@ -21,6 +21,7 @@ namespace voxhash
             kVoxelsPerSide * kVoxelsPerSide * kVoxelsPerSide;
 
         Block(MemoryType type);
+        void clear(const CudaStream &stream = CudaStreamOwning()) override;
 
         VoxelType getVoxel(const Index3D &index, const CudaStream &cuda_stream = CudaStreamOwning()) const;
         void setVoxel(const Index3D &index, const VoxelType value, const CudaStream &cuda_stream = CudaStreamOwning());

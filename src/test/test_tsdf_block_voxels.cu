@@ -40,7 +40,12 @@ int main(int argc, char *argv[])
     std::cout << "\n";
 
     TsdfVoxel voxel_value_retrieved = b_h->getVoxel(Index3D(0, 0, 1));
-    std::cout << "Voxel Value: (" << voxel_value_retrieved.tsdf << "," << voxel_value_retrieved.weight << ")\n";
+    std::cout << "Voxel Value before clearing: (" << voxel_value_retrieved.tsdf << "," << voxel_value_retrieved.weight << ")\n";
+    b_h->clear();
+    voxel_value_retrieved = b_h->getVoxel(Index3D(0, 0, 1));
+    std::cout << "Voxel Value after clearing: (" << voxel_value_retrieved.tsdf << "," << voxel_value_retrieved.weight << ")\n";
+
+    b.clear();
 
     TsdfVoxel *ptr = b.release();
     cudaFree(ptr);

@@ -25,6 +25,10 @@ int main(int argc, char *argv[])
   }
   std::cout << "\n";
 
+  std::cout << " Data at 1 before clearing: " << v1->data()[1] << "\n";
+  v1->clear();
+  std::cout << " Data at 1 after clearing: " << v1->data()[1] << "\n";
+
   float *ptr = v.release();
   std::cout << "Valid: " << std::boolalpha << v.valid() << "\n";
   cudaFree(ptr);

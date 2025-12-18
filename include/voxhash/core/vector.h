@@ -12,29 +12,19 @@ namespace voxhash
     {
     public:
         using Ptr = std::unique_ptr<Vector<DataType>>;
-
         Vector(size_t size, MemoryType type);
         virtual ~Vector();
-
         // Disable copy
         Vector(const Vector &) = delete;
         Vector &operator=(const Vector &) = delete;
-
         Vector(Vector &&) noexcept;
         Vector &operator=(Vector &&) noexcept;
-
         DataType *data() const;
-
         size_t size() const;
-
         MemoryType location() const;
-
-        // Vector<DataType> clone(const CudaStream &cuda_stream = CudaStreamOwning());
-
+        virtual void clear(const CudaStream &stream = CudaStreamOwning());
         DataType *release();
-
         bool valid() const;
-
         static std::unique_ptr<Vector<DataType>> copyFrom(const Vector<DataType> &src, const MemoryType target_type,
                                                           const CudaStream &stream = CudaStreamOwning());
 

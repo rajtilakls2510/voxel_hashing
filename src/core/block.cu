@@ -63,6 +63,12 @@ namespace voxhash
         return index.x * kVoxelsPerSide * kVoxelsPerSide + index.y * kVoxelsPerSide + index.z;
     }
 
+    template <typename VoxelType>
+    void Block<VoxelType>::clear(const CudaStream &cuda_stream)
+    {
+        checkCudaErrors(cudaMemsetAsync(this->ptr_, 0, sizeof(VoxelType) * kNumVoxels, cuda_stream));
+    }
+
     template class Block<int>;
     template class Block<float>;
     template class Block<TsdfVoxel>;

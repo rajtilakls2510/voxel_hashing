@@ -9,6 +9,7 @@ add_library(voxhash SHARED
     src/core/cuda_utils.cu
     src/core/vector.cu
     src/core/block.cu
+    src/hashing/memory_pool.cu
 )
 
 target_link_libraries(voxhash PUBLIC cuda cudart)

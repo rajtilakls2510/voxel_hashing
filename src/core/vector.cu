@@ -149,6 +149,12 @@ namespace voxhash
         return *this;
     }
 
+    template <typename DataType>
+    void Vector<DataType>::clear(const CudaStream &cuda_stream)
+    {
+        checkCudaErrors(cudaMemsetAsync(this->ptr_, 0, sizeof(DataType) * this->size_, cuda_stream));
+    }
+
     template class Vector<int>;
     template class Vector<float>;
     template class Vector<TsdfVoxel>;
