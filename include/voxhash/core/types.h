@@ -27,4 +27,14 @@ namespace voxhash
         }
     }
 
+    struct Index3D
+    {
+        int x, y, z;
+        Index3D(int x, int y, int z) : x(x), y(y), z(z) {}
+        bool operator==(const Index3D &other) const noexcept
+        {
+            return x == other.x && y == other.y && z == other.z;
+        }
+    };
+
 }

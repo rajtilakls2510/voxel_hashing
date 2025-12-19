@@ -90,7 +90,7 @@ namespace voxhash
     }
 
     template <typename DataType>
-    std::unique_ptr<Vector<DataType>> Vector<DataType>::copyFrom(const Vector<DataType> &src, const MemoryType target_type,
+    std::shared_ptr<Vector<DataType>> Vector<DataType>::copyFrom(const Vector<DataType> &src, const MemoryType target_type,
                                                                  const CudaStream &stream)
     {
         Ptr dst = src.createEmpty(target_type);
@@ -98,10 +98,26 @@ namespace voxhash
         dst->copyFromImpl(src, stream);
         return dst;
     }
+
     template <typename DataType>
-    std::unique_ptr<Vector<DataType>> Vector<DataType>::createEmpty(MemoryType target_type) const
+    bool Vector<DataType>::setFrom(const Vector<DataType> &src, const CudaStream &cuda_stream)
     {
-        return std::make_unique<Vector<DataType>>(this->size_, target_type);
+        if (src.size() != size_)
+            return false;
+
+        checkCudaErrors(
+            cudaMemcpyAsync(this->ptr_,
+                            src.ptr_,
+                            sizeof(DataType) * size_,
+                            cudaMemcpyDefault,
+                            cuda_stream));
+        return true;
+    }
+
+    template <typename DataType>
+    std::shared_ptr<Vector<DataType>> Vector<DataType>::createEmpty(MemoryType target_type) const
+    {
+        return std::make_shared<Vector<DataType>>(this->size_, target_type);
     }
 
     template <typename DataType>

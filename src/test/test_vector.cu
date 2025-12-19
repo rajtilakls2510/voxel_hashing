@@ -29,6 +29,19 @@ int main(int argc, char *argv[])
   v1->clear();
   std::cout << " Data at 1 after clearing: " << v1->data()[1] << "\n";
 
+  bool isSet = v1->setFrom(v);
+  if (!isSet)
+    std::cout << "Not Set\n";
+  else
+  {
+    std::cout << "Data (" << v1->size() << "): ";
+    for (size_t i = 0; i < v1->size(); i++)
+    {
+      std::cout << v1->data()[i] << ",";
+    }
+    std::cout << "\n";
+  }
+
   float *ptr = v.release();
   std::cout << "Valid: " << std::boolalpha << v.valid() << "\n";
   cudaFree(ptr);

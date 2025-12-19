@@ -11,27 +11,10 @@ namespace voxhash
     }
 
     template <typename VoxelType>
-    void Block<VoxelType>::allocateImpl(const CudaStream &cuda_stream)
-    {
-        if (this->type_ == MemoryType::kUnified)
-        {
-            checkCudaErrors(cudaMallocManaged(&this->ptr_, sizeof(VoxelType) * kNumVoxels, cudaMemAttachGlobal));
-        }
-        else if (this->type_ == MemoryType::kDevice)
-        {
-            checkCudaErrors(cudaMallocAsync(&this->ptr_, sizeof(VoxelType) * kNumVoxels, cuda_stream));
-        }
-        else
-        {
-            checkCudaErrors(cudaMallocHost(&this->ptr_, sizeof(VoxelType) * kNumVoxels));
-        }
-    }
-
-    template <typename VoxelType>
-    std::unique_ptr<Block<VoxelType>> Block<VoxelType>::copyFrom(const Block<VoxelType> &src, MemoryType target_type,
+    std::shared_ptr<Block<VoxelType>> Block<VoxelType>::copyFrom(const Block<VoxelType> &src, MemoryType target_type,
                                                                  const CudaStream &stream)
     {
-        auto dst = std::make_unique<Block<VoxelType>>(target_type);
+        auto dst = std::make_shared<Block<VoxelType>>(target_type);
 
         checkCudaErrors(
             cudaMemcpyAsync(dst->data(),

@@ -11,7 +11,7 @@ namespace voxhash
     class Vector
     {
     public:
-        using Ptr = std::unique_ptr<Vector<DataType>>;
+        using Ptr = std::shared_ptr<Vector<DataType>>;
         Vector(size_t size, MemoryType type);
         virtual ~Vector();
         // Disable copy
@@ -25,7 +25,8 @@ namespace voxhash
         virtual void clear(const CudaStream &stream = CudaStreamOwning());
         DataType *release();
         bool valid() const;
-        static std::unique_ptr<Vector<DataType>> copyFrom(const Vector<DataType> &src, const MemoryType target_type,
+        bool setFrom(const Vector<DataType> &src, const CudaStream &stream = CudaStreamOwning());
+        static std::shared_ptr<Vector<DataType>> copyFrom(const Vector<DataType> &src, const MemoryType target_type,
                                                           const CudaStream &stream = CudaStreamOwning());
 
     protected:
@@ -36,7 +37,7 @@ namespace voxhash
         void copyFromImpl(const Vector<DataType> &src,
                           const CudaStream &stream);
         virtual void allocateImpl(const CudaStream &cuda_stream = CudaStreamOwning());
-        std::unique_ptr<Vector<DataType>> createEmpty(MemoryType target_type) const;
+        std::shared_ptr<Vector<DataType>> createEmpty(MemoryType target_type) const;
         void allocate(const CudaStream &cuda_stream = CudaStreamOwning());
         void free(const CudaStream &cuda_stream = CudaStreamOwning());
     };

@@ -30,6 +30,19 @@ int main(int argc, char *argv[])
     voxel_value = b_h->getVoxel(Index3D(0, 0, 1));
     std::cout << " Voxel Value after clearing: " << voxel_value << "\n";
 
+    bool isSet = b_h->setFrom(b);
+    if (!isSet)
+        std::cout << "Not Set\n";
+    else
+    {
+        std::cout << "Data (" << b_h->size() << "): ";
+        for (size_t i = 0; i < b_h->size(); i++)
+        {
+            std::cout << b_h->data()[i] << ",";
+        }
+        std::cout << "\n";
+    }
+
     float *ptr = b.release();
     cudaFree(ptr);
     std::cout << "Valid: " << std::boolalpha << b.valid() << "\n";

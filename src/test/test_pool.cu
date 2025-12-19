@@ -1,5 +1,5 @@
 #include "voxhash/core/cuda_utils.h"
-#include "voxhash/hashing/memory_pool.h"
+#include "voxhash/core/memory_pool.h"
 #include "voxhash/core/voxels.h"
 #include <iostream>
 #include <chrono>
@@ -34,8 +34,7 @@ int main(int argc, char *argv[])
         for (size_t i = 0; i < pulled_blocks.size(); i++)
         {
             std::cout << "Pushing...\n";
-
-            pool.pushBlock(std::move(pulled_blocks[i]));
+            pool.pushBlock(pulled_blocks[i]);
             std::cout << "Size of pool: " << pool.size() << "\n";
         }
     }

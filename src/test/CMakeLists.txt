@@ -16,3 +16,9 @@ target_link_libraries(test_semantic_block_voxels PUBLIC voxhash)
 
 add_executable(test_pool test_pool.cu)
 target_link_libraries(test_pool PUBLIC voxhash)
+
+add_executable(test_hash test_hash.cu)
+target_link_libraries(test_hash PUBLIC voxhash)
+
+add_executable(test_layer test_layer.cu)
+target_link_libraries(test_layer PUBLIC voxhash)
