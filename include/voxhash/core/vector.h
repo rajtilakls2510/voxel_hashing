@@ -3,6 +3,7 @@
 #include "voxhash/core/cuda_utils.h"
 #include "voxhash/core/types.h"
 #include <memory>
+#include <vector>
 
 namespace voxhash
 {
@@ -28,6 +29,7 @@ namespace voxhash
         bool setFrom(const Vector<DataType> &src, const CudaStream &stream = CudaStreamOwning());
         static std::shared_ptr<Vector<DataType>> copyFrom(const Vector<DataType> &src, const MemoryType target_type,
                                                           const CudaStream &stream = CudaStreamOwning());
+        static std::shared_ptr<Vector<DataType>> copyFrom(const std::vector<DataType> &src, const MemoryType target_type, const CudaStream &stream = CudaStreamOwning());
 
     protected:
         DataType *ptr_{nullptr};

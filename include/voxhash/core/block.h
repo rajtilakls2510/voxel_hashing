@@ -5,11 +5,13 @@
 namespace voxhash
 {
 
-    template <typename VoxelType>
-    class Block : public Vector<VoxelType>
+    template <typename _VoxelType>
+    class Block : public Vector<_VoxelType>
     {
     public:
-        using Ptr = std::shared_ptr<Block<VoxelType>>;
+        using Ptr = std::shared_ptr<Block<_VoxelType>>;
+        using VoxelType = _VoxelType;
+
         static constexpr size_t kVoxelsPerSide = 8;
         static constexpr size_t kNumVoxels =
             kVoxelsPerSide * kVoxelsPerSide * kVoxelsPerSide;
@@ -17,13 +19,12 @@ namespace voxhash
         Block(MemoryType type);
         void clear(const CudaStream &stream = CudaStreamOwning()) override;
 
-        VoxelType getVoxel(const Index3D &index, const CudaStream &cuda_stream = CudaStreamOwning()) const;
-        void setVoxel(const Index3D &index, const VoxelType value, const CudaStream &cuda_stream = CudaStreamOwning());
+        _VoxelType getVoxel(const Index3D &index, const CudaStream &cuda_stream = CudaStreamOwning()) const;
+        void setVoxel(const Index3D &index, const _VoxelType value, const CudaStream &cuda_stream = CudaStreamOwning());
 
-        static std::shared_ptr<Block<VoxelType>> copyFrom(const Block<VoxelType> &src, MemoryType target_type,
-                                                          const CudaStream &stream = CudaStreamOwning());
+        static std::shared_ptr<Block<_VoxelType>> copyFrom(const Block<_VoxelType> &src, MemoryType target_type,
+                                                           const CudaStream &stream = CudaStreamOwning());
 
-    protected:
-        size_t idx(const Index3D &index) const;
+        __host__ __device__ static size_t idx(const Index3D &index);
     };
 } // namespace voxhash

@@ -22,3 +22,9 @@ target_link_libraries(test_hash PUBLIC voxhash)
 
 add_executable(test_layer test_layer.cu)
 target_link_libraries(test_layer PUBLIC voxhash)
+
+add_executable(test_indexing test_indexing.cu)
+target_link_libraries(test_indexing PUBLIC voxhash)
+
+add_executable(test_voxel_layer test_voxel_layer.cu)
+target_link_libraries(test_voxel_layer PUBLIC voxhash)

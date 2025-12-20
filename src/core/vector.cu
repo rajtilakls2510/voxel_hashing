@@ -100,6 +100,21 @@ namespace voxhash
     }
 
     template <typename DataType>
+    std::shared_ptr<Vector<DataType>> Vector<DataType>::copyFrom(const std::vector<DataType> &src, const MemoryType target_type, const CudaStream &stream)
+    {
+        Ptr dst = std::make_shared<Vector<DataType>>(src.size(), target_type);
+
+        // dst->copyFromImpl(src, stream);
+        checkCudaErrors(
+            cudaMemcpyAsync(dst->data(),
+                            src.data(),
+                            sizeof(DataType) * src.size(),
+                            cudaMemcpyDefault,
+                            stream));
+        return dst;
+    }
+
+    template <typename DataType>
     bool Vector<DataType>::setFrom(const Vector<DataType> &src, const CudaStream &cuda_stream)
     {
         if (src.size() != size_)
@@ -175,4 +190,11 @@ namespace voxhash
     template class Vector<float>;
     template class Vector<TsdfVoxel>;
     template class Vector<SemanticVoxel>;
+
+    template class Vector<Index3D>;
+
+    template class Vector<int *>;
+    template class Vector<float *>;
+    template class Vector<TsdfVoxel *>;
+    template class Vector<SemanticVoxel *>;
 }

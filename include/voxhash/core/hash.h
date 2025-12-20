@@ -9,14 +9,7 @@
 namespace voxhash
 {
 
-    template <typename BlockType>
-    using IndexBlockPair = std::pair<Index3D, typename BlockType::Ptr>;
-
-    // Note vector<Index3D> and vector<Block pointer> modification is removed. Modification of the content of each block is not removed.
-    template <typename BlockType>
-    using ConstIndexBlockPairs = std::pair<const std::vector<Index3D>, const std::vector<typename BlockType::Ptr>>;
-
-    // Taken from Nvblox
+        // Taken from Nvblox
     struct Index3DHash
     {
         /// number was arbitrarily chosen with no good justification

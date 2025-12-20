@@ -41,7 +41,7 @@ namespace voxhash
     }
 
     template <typename VoxelType>
-    size_t Block<VoxelType>::idx(const Index3D &index) const
+    size_t Block<VoxelType>::idx(const Index3D &index)
     {
         return index.x * kVoxelsPerSide * kVoxelsPerSide + index.y * kVoxelsPerSide + index.z;
     }

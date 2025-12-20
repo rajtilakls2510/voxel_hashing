@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 
     BlockLayerParams p;
     p.block_size = 0.4; // m
-    p.memory_type = MemoryType::kUnified;
+    p.memory_type = MemoryType::kDevice;
     p.min_allocated_blocks = 2;
     p.max_allocated_blocks = 5;
 

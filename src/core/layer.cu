@@ -3,6 +3,7 @@
 #include "voxhash/core/block.h"
 #include "voxhash/core/voxels.h"
 
+#include <iostream>
 namespace voxhash
 {
 
@@ -178,11 +179,113 @@ namespace voxhash
     }
 
     template <typename BlockType>
-    BlockLayer<BlockType>::~BlockLayer() {}
+    VoxelBlockLayer<BlockType>::VoxelBlockLayer(const BlockLayerParams &params) : BlockLayer<BlockType>(params) {}
+
+    template <typename BlockType>
+    typename BlockType::VoxelType VoxelBlockLayer<BlockType>::getVoxel(const Index3D &block_idx, const Index3D &voxel_idx, const CudaStream &stream) const
+    {
+        typename BlockType::VoxelType v;
+        IndexBlockPair<BlockType> index_block_pair = this->getBlock(block_idx);
+        typename BlockType::Ptr block_ptr = index_block_pair.second;
+        if (block_ptr)
+            v = block_ptr->getVoxel(voxel_idx, stream);
+        return v;
+    }
+
+    template <typename BlockType>
+    typename BlockType::VoxelType VoxelBlockLayer<BlockType>::getVoxel(const Vector3f &positionL, const CudaStream &stream) const
+    {
+        Index3D block_idx(0, 0, 0), voxel_idx(0, 0, 0);
+        getBlockAndVoxelIndexFromPosition(this->block_size_, positionL, &block_idx, &voxel_idx);
+        return getVoxel(block_idx, voxel_idx, stream);
+    }
+
+    template <typename BlockType>
+    bool VoxelBlockLayer<BlockType>::storeVoxel(const Index3D &block_idx, const Index3D &voxel_idx, const typename BlockType::VoxelType voxel, const CudaStream &stream)
+    {
+        typename BlockType::VoxelType v;
+        IndexBlockPair<BlockType> index_block_pair = this->getBlock(block_idx);
+        typename BlockType::Ptr block_ptr = index_block_pair.second;
+        if (!block_ptr)
+            return false;
+        block_ptr->setVoxel(voxel_idx, voxel, stream);
+        return true; // TODO: Change error check functionality
+    }
+
+    template <typename BlockType>
+    bool VoxelBlockLayer<BlockType>::storeVoxel(const Vector3f &positionL, const typename BlockType::VoxelType voxel, const CudaStream &stream)
+    {
+        Index3D block_idx(0, 0, 0), voxel_idx(0, 0, 0);
+        getBlockAndVoxelIndexFromPosition(this->block_size_, positionL, &block_idx, &voxel_idx);
+        return storeVoxel(block_idx, voxel_idx, voxel, stream);
+    }
+
+    template <typename BlockType>
+    __global__ void getVoxelsKernel(size_t num_voxels, typename BlockType::VoxelType **block_ptrs, Index3D *voxel_indices, typename BlockType::VoxelType *voxels)
+    {
+        const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx >= num_voxels)
+            return;
+        if (block_ptrs[idx])
+            voxels[idx] = block_ptrs[idx][BlockType::idx(voxel_indices[idx])];
+        else
+            voxels[idx] = typename BlockType::VoxelType();
+    }
+
+    template <typename BlockType>
+    Vector<typename BlockType::VoxelType> VoxelBlockLayer<BlockType>::getVoxels(IndexPairs &index_pairs, const CudaStream &stream) const
+    {
+        const std::vector<Index3D> &block_indices = index_pairs.second;
+        const std::vector<Index3D> &voxel_indices = index_pairs.first;
+
+        // Collect Block pointers from hash
+        Vector<typename BlockType::VoxelType *> block_ptrs_host(block_indices.size(), MemoryType::kHost);
+        for (size_t i = 0; i < block_indices.size(); i++)
+        {
+            typename BlockType::Ptr block_ptr = this->getBlock(block_indices[i]).second;
+            if (block_ptr)
+                block_ptrs_host.data()[i] = block_ptr.get()->data();
+            else
+                block_ptrs_host.data()[i] = nullptr;
+        }
+        // Allocate space for voxels to be retrieved
+        Vector<typename BlockType::VoxelType> voxels(block_indices.size(), this->type_);
+
+        if (this->type_ == MemoryType::kHost)
+        {
+            for (size_t i = 0; i < block_indices.size(); i++)
+            {
+                typename BlockType::VoxelType *block_ptr_host = block_ptrs_host.data()[i];
+                if (block_ptr_host)
+                    voxels.data()[i] = block_ptr_host[BlockType::idx(voxel_indices[i])];
+                else
+                    voxels.data()[i] = typename BlockType::VoxelType();
+            }
+        }
+        else
+        {
+            // Send Block pointers to layer location (device or unified)
+            typename Vector<typename BlockType::VoxelType *>::Ptr block_ptrs = Vector<typename BlockType::VoxelType *>::copyFrom(block_ptrs_host, this->type_, stream);
+            // Send voxel indices to layer location (device or unified)
+            Vector<Index3D>::Ptr vi = Vector<Index3D>::copyFrom(voxel_indices, this->type_, stream);
+
+            // Run retrieval kernel
+            constexpr int kNumThreads = 512;
+            const int kNumBlocks = voxel_indices.size() / kNumThreads + 1;
+            getVoxelsKernel<BlockType><<<kNumBlocks, kNumThreads, 0, stream>>>(voxel_indices.size(), block_ptrs->data(), vi->data(), voxels.data());
+            stream.synchronize();
+            checkCudaErrors(cudaPeekAtLastError());
+        }
+        return voxels;
+    }
 
     template class BlockLayer<Block<int>>;
     template class BlockLayer<Block<float>>;
     template class BlockLayer<Block<TsdfVoxel>>;
     template class BlockLayer<Block<SemanticVoxel>>;
 
+    template class VoxelBlockLayer<Block<int>>;
+    template class VoxelBlockLayer<Block<float>>;
+    template class VoxelBlockLayer<Block<TsdfVoxel>>;
+    template class VoxelBlockLayer<Block<SemanticVoxel>>;
 }

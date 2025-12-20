@@ -47,4 +47,15 @@ int main(int argc, char *argv[])
   cudaFree(ptr);
 
   std::cout << "Created vector of size: " << size << " on " << to_string(type) << "\n";
+
+  std::vector<int> vector_to_convert;
+  for (int i = 0; i < 10; i++)
+    vector_to_convert.push_back(i);
+  Vector<int>::Ptr vector_converted_device = Vector<int>::copyFrom(vector_to_convert, MemoryType::kDevice);
+  Vector<int>::Ptr vector_converted = Vector<int>::copyFrom(*vector_converted_device, MemoryType::kHost);
+
+  std::cout << "Vector: ";
+  for (int i = 0; i < 10; i++)
+    std::cout << vector_converted->data()[i] << ", ";
+  std::cout << "\n";
 }
