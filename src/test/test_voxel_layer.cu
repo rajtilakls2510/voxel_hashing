@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 
     BlockLayerParams p;
     p.block_size = 0.4; // m
-    p.memory_type = MemoryType::kDevice;
+    p.memory_type = MemoryType::kHost;
     p.min_allocated_blocks = 2;
     p.max_allocated_blocks = 5;
 
@@ -54,33 +54,92 @@ int main(int argc, char *argv[])
     std::cout << "Tsdf: " << v.tsdf << " Weight: " << v.weight << "\n";
 
     // ===========
+    {
+        std::vector<Index3D> block_indices;
+        std::vector<Index3D> voxel_indices;
+        block_indices.push_back(Index3D(0, 0, 1));
+        block_indices.push_back(Index3D(-1, 0, 0));
+        block_indices.push_back(Index3D(0, -1, 0));
+        voxel_indices.push_back(Index3D(2, 0, 1));
+        voxel_indices.push_back(Index3D(2, 1, 0));
+        voxel_indices.push_back(Index3D(2, 0, 0));
+        std::vector<TsdfVoxel> voxels_to_store;
+        voxels_to_store.emplace_back(-1.0f, 10.0f);
+        voxels_to_store.emplace_back(1.0f, 20.0f);
+        voxels_to_store.emplace_back(-1.5f, 30.0f);
 
-    std::vector<Index3D> block_indices;
-    std::vector<Index3D> voxel_indices;
-    block_indices.push_back(Index3D(0, 0, 1));
-    block_indices.push_back(Index3D(-1, 0, 0));
-    block_indices.push_back(Index3D(0, -1, 0));
-    voxel_indices.push_back(Index3D(2, 0, 1));
-    voxel_indices.push_back(Index3D(2, 1, 0));
-    voxel_indices.push_back(Index3D(2, 0, 0));
-    std::vector<TsdfVoxel> voxels_to_store;
-    voxels_to_store.emplace_back(-1.0f, 10.0f);
-    voxels_to_store.emplace_back(1.0f, 20.0f);
-    voxels_to_store.emplace_back(-1.5f, 30.0f);
+        // layer.allocateBlocks(block_indices);
 
-    layer.allocateBlocks(block_indices);
+        // layer.getBlock(block_indices[0]).second->setVoxel(voxel_indices[0], voxels_to_store[0], stream);
+        // layer.getBlock(block_indices[1]).second->setVoxel(voxel_indices[1], voxels_to_store[1], stream);
+        // layer.getBlock(block_indices[2]).second->setVoxel(voxel_indices[2], voxels_to_store[2], stream);
 
-    layer.getBlock(block_indices[0]).second->setVoxel(voxel_indices[0], voxels_to_store[0], stream);
-    // layer.getBlock(block_indices[1]).second->setVoxel(voxel_indices[1], voxels_to_store[1], stream);
-    layer.getBlock(block_indices[2]).second->setVoxel(voxel_indices[2], voxels_to_store[2], stream);
+        IndexPairs block_and_voxel_indices = {block_indices, voxel_indices};
 
-    IndexPairs block_and_voxel_indices = {voxel_indices, block_indices};
-    Vector<TsdfVoxel> voxels = layer.getVoxels(block_and_voxel_indices, stream);
-    Vector<TsdfVoxel>::Ptr voxels_host = Vector<TsdfVoxel>::copyFrom(voxels, MemoryType::kHost, stream);
+        Vector<TsdfVoxel>::Ptr voxels_to_store_ = Vector<TsdfVoxel>::copyFrom(voxels_to_store, MemoryType::kHost, stream); // Doesn't matter where we store
+        Vector<Bool> stored = layer.storeVoxels(block_and_voxel_indices, *voxels_to_store_, stream);
+        Vector<Bool>::Ptr stored_host = Vector<Bool>::copyFrom(stored, MemoryType::kHost, stream);
+        stream.synchronize();
 
-    std::cout << "Voxels: \n";
-    for (size_t i = 0; i < voxels_host->size(); i++)
-        std::cout << "(" << voxels_host->data()[i].tsdf << "," << voxels_host->data()[i].weight << ")\n";
+        std::cout << "Stored: ";
+        for (size_t i = 0; i < stored_host->size(); i++)
+            std::cout << (int)((*stored_host)[i]) << ",";
+        std::cout << "\n";
 
+        Vector<TsdfVoxel> voxels = layer.getVoxels(block_and_voxel_indices, stream);
+        Vector<TsdfVoxel>::Ptr voxels_host = Vector<TsdfVoxel>::copyFrom(voxels, MemoryType::kHost, stream);
+
+        stream.synchronize();
+
+        std::cout << "Voxels: \n";
+        for (size_t i = 0; i < voxels_host->size(); i++)
+            std::cout << "(" << voxels_host->data()[i].tsdf << "," << voxels_host->data()[i].weight << ")\n";
+    }
+
+    // ===========
+    {
+        std::vector<Vector3f> positions;
+        positions.push_back(Vector3f(10.0, 11.0, 12.0));
+        positions.push_back(Vector3f(-10.0, 11.0, 12.0));
+        positions.push_back(Vector3f(10.0, -11.0, 12.0));
+        std::vector<TsdfVoxel> voxels_to_store;
+        voxels_to_store.emplace_back(-1.0f, 10.0f);
+        voxels_to_store.emplace_back(1.0f, 20.0f);
+        voxels_to_store.emplace_back(-1.5f, 30.0f);
+
+        // std::vector<Index3D> block_indices;
+        // std::vector<Index3D> voxel_indices;
+        // for (size_t i = 0; i < positions.size(); i++)
+        // {
+        //     Index3D bl_idx(0, 0, 0), v_idx(0, 0, 0);
+        //     getBlockAndVoxelIndexFromPosition(layer.block_size(), positions[i], &bl_idx, &v_idx);
+        //     block_indices.push_back(bl_idx);
+        //     voxel_indices.push_back(v_idx);
+        // }
+
+        // layer.allocateBlocks(block_indices);
+
+        // layer.getBlock(block_indices[0]).second->setVoxel(voxel_indices[0], voxels_to_store[0], stream);
+        // // layer.getBlock(block_indices[1]).second->setVoxel(voxel_indices[1], voxels_to_store[1], stream);
+        // layer.getBlock(block_indices[2]).second->setVoxel(voxel_indices[2], voxels_to_store[2], stream);
+
+        Vector<TsdfVoxel>::Ptr voxels_to_store_ = Vector<TsdfVoxel>::copyFrom(voxels_to_store, MemoryType::kHost, stream); // Doesn't matter where we store
+        Vector<Bool> stored = layer.storeVoxels(positions, *voxels_to_store_, stream);
+        Vector<Bool>::Ptr stored_host = Vector<Bool>::copyFrom(stored, MemoryType::kHost, stream);
+        stream.synchronize();
+
+        std::cout << "Stored: ";
+        for (size_t i = 0; i < stored_host->size(); i++)
+            std::cout << (int)((*stored_host)[i]) << ",";
+        std::cout << "\n";
+
+        // IndexPairs block_and_voxel_indices = {voxel_indices, block_indices};
+        Vector<TsdfVoxel> voxels = layer.getVoxels(positions, stream);
+        Vector<TsdfVoxel>::Ptr voxels_host = Vector<TsdfVoxel>::copyFrom(voxels, MemoryType::kHost, stream);
+
+        std::cout << "Voxels: \n";
+        for (size_t i = 0; i < voxels_host->size(); i++)
+            std::cout << "(" << voxels_host->data()[i].tsdf << "," << voxels_host->data()[i].weight << ")\n";
+    }
     return 0;
 }

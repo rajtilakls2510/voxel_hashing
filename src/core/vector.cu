@@ -181,6 +181,12 @@ namespace voxhash
     }
 
     template <typename DataType>
+    DataType &Vector<DataType>::operator[](size_t idx) const
+    {
+        return this->ptr_[idx];
+    }
+
+    template <typename DataType>
     void Vector<DataType>::clear(const CudaStream &cuda_stream)
     {
         checkCudaErrors(cudaMemsetAsync(this->ptr_, 0, sizeof(DataType) * this->size_, cuda_stream));
@@ -192,6 +198,9 @@ namespace voxhash
     template class Vector<SemanticVoxel>;
 
     template class Vector<Index3D>;
+    template class Vector<Vector3f>;
+    template class Vector<bool>;
+    template class Vector<Bool>;
 
     template class Vector<int *>;
     template class Vector<float *>;

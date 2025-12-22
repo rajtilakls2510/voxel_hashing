@@ -20,6 +20,7 @@ namespace voxhash
         Vector &operator=(const Vector &) = delete;
         Vector(Vector &&) noexcept;
         Vector &operator=(Vector &&) noexcept;
+        DataType &operator[](size_t idx) const;
         DataType *data() const;
         size_t size() const;
         MemoryType location() const;
@@ -43,5 +44,12 @@ namespace voxhash
         void allocate(const CudaStream &cuda_stream = CudaStreamOwning());
         void free(const CudaStream &cuda_stream = CudaStreamOwning());
     };
+
+    // Note: Stopping copy of Vector from std::vector<bool> because it stores bitvector
+    template <>
+    std::shared_ptr<Vector<bool>>
+    Vector<bool>::copyFrom(const std::vector<bool> &,
+                           MemoryType,
+                           const CudaStream &) = delete;
 
 } // namespace voxhash

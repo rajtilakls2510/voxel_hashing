@@ -1,4 +1,5 @@
 #include "voxhash/core/indexing.h"
+#include "voxhash/core/vector.h"
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -40,6 +41,21 @@ int main(int argc, char *argv[])
 
     Vector3f center_position_ = getCenterPositionFromBlockAndVoxelIndex(block_size, block_idx, voxel_idx);
     std::cout << "Position: " << idxToStr(test_position) << " Block idx: " << idxToStr(block_idx) << " Voxel idx: " << idxToStr(voxel_idx) << " Received Center pos: " << idxToStr(center_position_) << "\n";
+
+    std::vector<Vector3f> positions_to_test;
+    positions_to_test.push_back(Vector3f(1.0f, 2.0f, 3.025f));
+    positions_to_test.push_back(Vector3f(1.0f, 2.2f, 3.5f));
+    positions_to_test.push_back(Vector3f(0.5f, 2.2f, 4.0f));
+
+    CudaStreamOwning cuda_stream;
+    Vector<Vector3f>::Ptr positions_vec = Vector<Vector3f>::copyFrom(positions_to_test, MemoryType::kDevice, cuda_stream);
+
+    std::pair<Vector<Index3D>, Vector<Index3D>> block_and_voxel_indices = getBlockAndVoxelIndicesFromPositions(block_size, *positions_vec);
+    Vector<Index3D>::Ptr block_indices = Vector<Index3D>::copyFrom(block_and_voxel_indices.first, MemoryType::kHost, cuda_stream);
+    Vector<Index3D>::Ptr voxel_indices = Vector<Index3D>::copyFrom(block_and_voxel_indices.second, MemoryType::kHost, cuda_stream);
+
+    for (size_t i = 0; i < positions_to_test.size(); i++)
+        std::cout << "Position: " << idxToStr(positions_to_test[i]) << " Block idx: " << idxToStr(block_indices->data()[i]) << " Voxel idx: " << idxToStr(voxel_indices->data()[i]) << "\n";
 
     return 0;
 }

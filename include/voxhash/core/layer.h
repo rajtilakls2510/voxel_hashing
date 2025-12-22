@@ -90,12 +90,16 @@ namespace voxhash
         virtual typename BlockType::VoxelType getVoxel(const Index3D &block_idx, const Index3D &voxel_idx, const CudaStream &stream = CudaStreamOwning()) const;
         virtual typename BlockType::VoxelType getVoxel(const Vector3f &positionL, const CudaStream &stream = CudaStreamOwning()) const;
         virtual Vector<typename BlockType::VoxelType> getVoxels(IndexPairs &index_pairs, const CudaStream &stream = CudaStreamOwning()) const; // Returns Vector of voxels in the layer location
-        // virtual Vector<typename BlockType::VoxelType> getVoxels(const std::vector<Vector3f> &positionsL);
+        virtual Vector<typename BlockType::VoxelType> getVoxels(const std::vector<Vector3f> &positionsL, const CudaStream &stream = CudaStreamOwning()) const;
 
         virtual bool storeVoxel(const Index3D &block_idx, const Index3D &voxel_idx, const typename BlockType::VoxelType voxel, const CudaStream &stream = CudaStreamOwning());
         virtual bool storeVoxel(const Vector3f &positionL, const typename BlockType::VoxelType voxel, const CudaStream &stream = CudaStreamOwning());
-        // virtual Vector<bool> storeVoxels(const std::vector<Index3D> &block_indices, const std::vector<Index3D> &voxel_indices, const Vector<typename BlockType::VoxelType> &voxels);
-        // virtual Vector<bool> storeVoxels(const std::vector<Vector3f> &positionsL, const Vector<typename BlockType::VoxelType> &voxels);
+        virtual Vector<Bool> storeVoxels(IndexPairs &index_pairs, const Vector<typename BlockType::VoxelType> &voxels, const CudaStream &stream = CudaStreamOwning());
+        virtual Vector<Bool> storeVoxels(const std::vector<Vector3f> &positionsL, const Vector<typename BlockType::VoxelType> &voxels, const CudaStream &stream = CudaStreamOwning());
+
+    protected:
+        virtual Vector<typename BlockType::VoxelType> getVoxelsInternal(const Vector<Index3D> &block_indices, const Vector<Index3D> &voxel_indices, const CudaStream &stream) const;
+        virtual Vector<Bool> storeVoxelsInternal(const Vector<Index3D> &block_indices, const Vector<Index3D> &voxel_indices, const Vector<typename BlockType::VoxelType> &voxels, const CudaStream &stream);
     };
 
 } // namespace voxhash
