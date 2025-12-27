@@ -61,12 +61,33 @@ __global__ void insert_one(int key, int value, stdgpu::unordered_map<int, int> m
     map.emplace(key, value);
 }
 
+__global__ void erase_one(int key, stdgpu::unordered_map<int, int> map)
+{
+    map.erase(key);
+}
+
 __global__ void setKeys(int *keys, int n)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= n)
         return;
     keys[i] = i * 5;
+}
+
+__global__ void setKeys2(int *keys, int n, int offset)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n)
+        return;
+    keys[i] = i + offset;
+}
+
+__global__ void eraseKeys(int *keys, int n, stdgpu::unordered_map<int, int> map)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n)
+        return;
+    map.erase(keys[i]);
 }
 
 __global__ void getValues(int *keys, int *values, int n, stdgpu::unordered_map<int, int> map)
@@ -133,6 +154,24 @@ int main()
     insert_one<<<1, 1>>>(100, 100 * 100, map);
     cudaDeviceSynchronize();
 
+    // Erase one
+    erase_one<<<1, 1>>>(99, map);
+    cudaDeviceSynchronize();
+
+    // Erase multiple
+    int *erase_keys{nullptr};
+    int n_erase_q = 10;
+    cudaMalloc(&erase_keys, n_erase_q * sizeof(int));
+
+    bpg = (n_erase_q + tpb - 1) / tpb;
+    setKeys2<<<bpg, tpb>>>(erase_keys, n_erase_q, 80);
+    cudaDeviceSynchronize();
+
+    eraseKeys<<<bpg, tpb>>>(erase_keys, n_erase_q, map);
+    cudaDeviceSynchronize();
+
+    cudaFree(erase_keys);
+
     // Extract All Keys and Values
 
     int *d_keys{nullptr}, *d_values{nullptr};
@@ -141,6 +180,7 @@ int main()
     int *d_count;
     cudaMalloc(&d_count, sizeof(int));
     cudaMemset(d_count, 0, sizeof(int));
+
     auto range_map = map.device_range();
     thrust::transform(
         range_map.begin(),
@@ -161,7 +201,7 @@ int main()
 
     // Extract Multiple Values given Keys
     int *g_keys{nullptr}, *g_values{nullptr};
-    int num_queries = 10;
+    int num_queries = 20;
     cudaMalloc(&g_keys, 2 * num_queries * sizeof(int));
     g_values = g_keys + num_queries;
 
