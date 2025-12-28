@@ -1,12 +1,12 @@
-#include "voxhash/core/cuda_utils.h"
-#include "voxhash/core/block.h"
 #include <iostream>
 #include <string>
 
+#include "voxhash/core/block.h"
+#include "voxhash/core/cuda_utils.h"
+
 using namespace voxhash;
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char* argv[]) {
     warmupCuda();
     MemoryType type = MemoryType::kDevice;
     Block<float> b(type);
@@ -18,8 +18,7 @@ int main(int argc, char *argv[])
     b_h->setVoxel(Index3D(0, 0, 2), 200);
 
     std::cout << "Data (" << b_h->size() << "): ";
-    for (size_t i = 0; i < b_h->size(); i++)
-    {
+    for (size_t i = 0; i < b_h->size(); i++) {
         std::cout << b_h->data()[i] << ",";
     }
     std::cout << "\n";
@@ -33,17 +32,15 @@ int main(int argc, char *argv[])
     bool isSet = b_h->setFrom(b);
     if (!isSet)
         std::cout << "Not Set\n";
-    else
-    {
+    else {
         std::cout << "Data (" << b_h->size() << "): ";
-        for (size_t i = 0; i < b_h->size(); i++)
-        {
+        for (size_t i = 0; i < b_h->size(); i++) {
             std::cout << b_h->data()[i] << ",";
         }
         std::cout << "\n";
     }
 
-    float *ptr = b.release();
+    float* ptr = b.release();
     cudaFree(ptr);
     std::cout << "Valid: " << std::boolalpha << b.valid() << "\n";
 

@@ -1,27 +1,26 @@
 
-#include <iostream>
-
+#include <stdgpu/iterator.h>  // device_begin, device_end
+#include <stdgpu/memory.h>    // createDeviceArray, destroyDeviceArray
+#include <stdgpu/platform.h>  // STDGPU_HOST_DEVICE
 #include <thrust/transform.h>
 
-#include <stdgpu/iterator.h>        // device_begin, device_end
-#include <stdgpu/memory.h>          // createDeviceArray, destroyDeviceArray
-#include <stdgpu/platform.h>        // STDGPU_HOST_DEVICE
-#include <stdgpu/unordered_map.cuh> // stdgpu::unordered_map
+#include <iostream>
+#include <stdgpu/unordered_map.cuh>  // stdgpu::unordered_map
 
-__global__ void init_keys_values(int *keys, int *values, const stdgpu::index_t n)
-{
+__global__ void init_keys_values(int* keys, int* values, const stdgpu::index_t n) {
     stdgpu::index_t i = static_cast<stdgpu::index_t>(blockIdx.x * blockDim.x + threadIdx.x);
-    if (i >= n)
-        return;
+    if (i >= n) return;
     keys[i] = (int)i;
     values[i] = (int)i * i;
 }
 
-__global__ void my_insert_kernel(const int *keys, const int *values, const stdgpu::index_t n, stdgpu::unordered_map<int, int> map)
-{
+__global__ void my_insert_kernel(
+        const int* keys,
+        const int* values,
+        const stdgpu::index_t n,
+        stdgpu::unordered_map<int, int> map) {
     stdgpu::index_t i = static_cast<stdgpu::index_t>(blockIdx.x * blockDim.x + threadIdx.x);
-    if (i >= n)
-        return;
+    if (i >= n) return;
     map.emplace(keys[i], values[i]);
 }
 
@@ -42,12 +41,9 @@ __global__ void my_insert_kernel(const int *keys, const int *values, const stdgp
 //         values[idx] = it->second;
 //     }
 // }
-struct extract_kv
-{
+struct extract_kv {
     STDGPU_HOST_DEVICE
-    thrust::tuple<int, int>
-    operator()(const stdgpu::pair<const int, int> &p) const
-    {
+    thrust::tuple<int, int> operator()(const stdgpu::pair<const int, int>& p) const {
         // IMPORTANT: filter invalid entries
         // if (!p.occupied || !p.valid)
         //     return thrust::make_tuple(-1, -1); // sentinel
@@ -56,80 +52,57 @@ struct extract_kv
     }
 };
 
-__global__ void insert_one(int key, int value, stdgpu::unordered_map<int, int> map)
-{
+__global__ void insert_one(int key, int value, stdgpu::unordered_map<int, int> map) {
     map.emplace(key, value);
 }
 
-__global__ void erase_one(int key, stdgpu::unordered_map<int, int> map)
-{
-    map.erase(key);
-}
+__global__ void erase_one(int key, stdgpu::unordered_map<int, int> map) { map.erase(key); }
 
-__global__ void setKeys(int *keys, int n)
-{
+__global__ void setKeys(int* keys, int n) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= n)
-        return;
+    if (i >= n) return;
     keys[i] = i * 5;
 }
 
-__global__ void setKeys2(int *keys, int n, int offset)
-{
+__global__ void setKeys2(int* keys, int n, int offset) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= n)
-        return;
+    if (i >= n) return;
     keys[i] = i + offset;
 }
 
-__global__ void eraseKeys(int *keys, int n, stdgpu::unordered_map<int, int> map)
-{
+__global__ void eraseKeys(int* keys, int n, stdgpu::unordered_map<int, int> map) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= n)
-        return;
+    if (i >= n) return;
     map.erase(keys[i]);
 }
 
-__global__ void getValues(int *keys, int *values, int n, stdgpu::unordered_map<int, int> map)
-{
+__global__ void getValues(int* keys, int* values, int n, stdgpu::unordered_map<int, int> map) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= n)
-        return;
+    if (i >= n) return;
     int key = keys[i];
 
     auto it = map.find(key);
 
-    if (it != map.end())
-    {
+    if (it != map.end()) {
         values[i] = it->second;
-    }
-    else
-    {
-        values[i] = -1; // sentinel for "not found"
+    } else {
+        values[i] = -1;  // sentinel for "not found"
     }
 }
 
-__global__ void getValueSingle(int key,
-                               int *out_value,
-                               int *out_found,
-                               stdgpu::unordered_map<int, int> map)
-{
+__global__ void getValueSingle(
+        int key, int* out_value, int* out_found, stdgpu::unordered_map<int, int> map) {
     auto it = map.find(key);
 
-    if (it != map.end())
-    {
+    if (it != map.end()) {
         *out_value = it->second;
         *out_found = 1;
-    }
-    else
-    {
+    } else {
         *out_found = 0;
     }
 }
 
-int main()
-{
-
+int main() {
     // My Implementation
     const stdgpu::index_t n = 100;
     stdgpu::index_t m = 100;
@@ -159,7 +132,7 @@ int main()
     cudaDeviceSynchronize();
 
     // Erase multiple
-    int *erase_keys{nullptr};
+    int* erase_keys{nullptr};
     int n_erase_q = 10;
     cudaMalloc(&erase_keys, n_erase_q * sizeof(int));
 
@@ -177,25 +150,24 @@ int main()
     int *d_keys{nullptr}, *d_values{nullptr};
     cudaMalloc(&d_keys, 2 * map.size() * sizeof(int));
     d_values = d_keys + map.size();
-    int *d_count;
+    int* d_count;
     cudaMalloc(&d_count, sizeof(int));
     cudaMemset(d_count, 0, sizeof(int));
 
     auto range_map = map.device_range();
     thrust::transform(
-        range_map.begin(),
-        range_map.end(),
-        thrust::make_zip_iterator(
-            thrust::make_tuple(d_keys, d_values)),
-        extract_kv());
+            range_map.begin(),
+            range_map.end(),
+            thrust::make_zip_iterator(thrust::make_tuple(d_keys, d_values)),
+            extract_kv());
 
     m = map.size();
     int h_keys[m * 2];
     cudaMemcpy(h_keys, d_keys, m * 2 * sizeof(int), cudaMemcpyDefault);
     std::cout << "Keys (" << map.size() << "): ";
-    for (int i = 0; i < m; i++)
-    {
-        std::cout << "(" << h_keys[i] << " " << h_keys[i + m] << "), " << (h_keys[i] * h_keys[i] == h_keys[i + m] ? "valid" : "invalid") << "\n";
+    for (int i = 0; i < m; i++) {
+        std::cout << "(" << h_keys[i] << " " << h_keys[i + m] << "), "
+                  << (h_keys[i] * h_keys[i] == h_keys[i + m] ? "valid" : "invalid") << "\n";
     }
     std::cout << "\n";
 
@@ -215,9 +187,10 @@ int main()
     cudaDeviceSynchronize();
 
     cudaMemcpy(h_keys, g_keys, num_queries * 2 * sizeof(int), cudaMemcpyDefault);
-    for (int i = 0; i < num_queries; i++)
-    {
-        std::cout << "(" << h_keys[i] << " " << h_keys[i + num_queries] << "), " << (h_keys[i] * h_keys[i] == h_keys[i + num_queries] ? "valid" : "invalid") << "\n";
+    for (int i = 0; i < num_queries; i++) {
+        std::cout << "(" << h_keys[i] << " " << h_keys[i + num_queries] << "), "
+                  << (h_keys[i] * h_keys[i] == h_keys[i + num_queries] ? "valid" : "invalid")
+                  << "\n";
     }
     std::cout << "\n";
 
@@ -234,16 +207,14 @@ int main()
 
     int h_found;
     cudaMemcpy(&h_found, d_found, sizeof(int), cudaMemcpyDeviceToHost);
-    if (h_found)
-        cudaMemcpy(&value_out, d_value, sizeof(int), cudaMemcpyDeviceToHost);
+    if (h_found) cudaMemcpy(&value_out, d_value, sizeof(int), cudaMemcpyDeviceToHost);
     std::cout << "Found: " << (h_found ? "YES" : "NO") << "\n";
     std::cout << "Value: " << value_out << "\n";
 
     cudaFree(d_value);
     cudaFree(d_found);
 
-    std::cout
-        << "Map size: " << map.size() << "\n";
+    std::cout << "Map size: " << map.size() << "\n";
 
     cudaFree(g_keys);
     cudaFree(d_keys);

@@ -1,13 +1,13 @@
-#include "voxhash/core/cuda_utils.h"
-#include "voxhash/core/block.h"
-#include "voxhash/core/voxels.h"
 #include <iostream>
 #include <string>
 
+#include "voxhash/core/block.h"
+#include "voxhash/core/cuda_utils.h"
+#include "voxhash/core/voxels.h"
+
 using namespace voxhash;
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char* argv[]) {
     warmupCuda();
 
     MemoryType type = MemoryType::kDevice;
@@ -20,8 +20,7 @@ int main(int argc, char *argv[])
     Vector<SemanticVoxel>::Ptr v1 = Vector<SemanticVoxel>::copyFrom(v, MemoryType::kHost);
 
     std::cout << "Data (" << v1->size() << "): ";
-    for (size_t i = 0; i < v1->size(); i++)
-    {
+    for (size_t i = 0; i < v1->size(); i++) {
         std::cout << "(" << v1->data()[i].label << "," << v1->data()[i].weight << "), ";
     }
     std::cout << "\n";
@@ -33,21 +32,22 @@ int main(int argc, char *argv[])
     b_h->setVoxel(Index3D(0, 0, 2), SemanticVoxel{2, 5.0f});
 
     std::cout << "Data (" << b_h->size() << "): ";
-    for (size_t i = 0; i < b_h->size(); i++)
-    {
+    for (size_t i = 0; i < b_h->size(); i++) {
         std::cout << "(" << b_h->data()[i].label << "," << b_h->data()[i].weight << "), ";
     }
     std::cout << "\n";
 
     SemanticVoxel voxel_value_retrieved = b_h->getVoxel(Index3D(0, 0, 1));
-    std::cout << "Voxel Value before clearing: (" << voxel_value_retrieved.label << "," << voxel_value_retrieved.weight << ")\n";
+    std::cout << "Voxel Value before clearing: (" << voxel_value_retrieved.label << ","
+              << voxel_value_retrieved.weight << ")\n";
     b_h->clear();
     voxel_value_retrieved = b_h->getVoxel(Index3D(0, 0, 1));
-    std::cout << "Voxel Value after clearing: (" << voxel_value_retrieved.label << "," << voxel_value_retrieved.weight << ")\n";
+    std::cout << "Voxel Value after clearing: (" << voxel_value_retrieved.label << ","
+              << voxel_value_retrieved.weight << ")\n";
 
     b.clear();
 
-    SemanticVoxel *ptr = b.release();
+    SemanticVoxel* ptr = b.release();
     cudaFree(ptr);
     std::cout << "Valid: " << std::boolalpha << b.valid() << "\n";
 

@@ -1,25 +1,22 @@
+#include <iostream>
+
 #include "voxhash/core/cuda_utils.h"
 #include "voxhash/core/layer.h"
-#include <iostream>
 
 using namespace voxhash;
 using TsdfBlock = Block<TsdfVoxel>;
 using TsdfLayer = BlockLayer<TsdfBlock>;
 
-void printAllocations(ConstIndexBlockPairs<TsdfBlock> &index_block_pairs)
-{
-    const auto &indices = index_block_pairs.first;
-    const auto &blocks = index_block_pairs.second;
+void printAllocations(ConstIndexBlockPairs<TsdfBlock>& index_block_pairs) {
+    const auto& indices = index_block_pairs.first;
+    const auto& blocks = index_block_pairs.second;
 
     const size_t n = std::min(indices.size(), blocks.size());
 
-    for (size_t i = 0; i < n; ++i)
-    {
-        const Index3D &idx = indices[i];
+    for (size_t i = 0; i < n; ++i) {
+        const Index3D& idx = indices[i];
 
-        std::cout << "(" << idx.x << ", "
-                  << idx.y << ", "
-                  << idx.z << "): ";
+        std::cout << "(" << idx.x << ", " << idx.y << ", " << idx.z << "): ";
 
         if (blocks[i])
             std::cout << "allocated\n";
@@ -28,17 +25,12 @@ void printAllocations(ConstIndexBlockPairs<TsdfBlock> &index_block_pairs)
     }
 }
 
-void printAllocations(std::vector<Index3D> &indices, std::vector<bool> &able_to_allocate)
-{
-
+void printAllocations(std::vector<Index3D>& indices, std::vector<bool>& able_to_allocate) {
     const size_t n = std::min(indices.size(), able_to_allocate.size());
-    for (size_t i = 0; i < n; ++i)
-    {
-        const Index3D &idx = indices[i];
+    for (size_t i = 0; i < n; ++i) {
+        const Index3D& idx = indices[i];
 
-        std::cout << "(" << idx.x << ", "
-                  << idx.y << ", "
-                  << idx.z << "): ";
+        std::cout << "(" << idx.x << ", " << idx.y << ", " << idx.z << "): ";
 
         if (able_to_allocate[i])
             std::cout << "allocated\n";
@@ -47,22 +39,19 @@ void printAllocations(std::vector<Index3D> &indices, std::vector<bool> &able_to_
     }
 }
 
-void printIndices(const std::vector<Index3D> &indices)
-{
+void printIndices(const std::vector<Index3D>& indices) {
     std::cout << "Indices: ";
-    for (const auto &index : indices)
-    {
+    for (const auto& index : indices) {
         std::cout << "(" << index.x << "," << index.y << "," << index.z << "), ";
     }
     std::cout << "\n";
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char* argv[]) {
     warmupCuda();
 
     BlockLayerParams p;
-    p.block_size = 0.4; // m
+    p.block_size = 0.4;  // m
     p.memory_type = MemoryType::kDevice;
     p.min_allocated_blocks = 2;
     p.max_allocated_blocks = 5;
@@ -78,16 +67,13 @@ int main(int argc, char *argv[])
         std::cout << "Block does not exist\n";
 
     bool allocated = layer.allocateBlock(index_to_allocate);
-    if (allocated)
-    {
+    if (allocated) {
         block_pair = layer.getBlock(index_to_allocate);
         if (block_pair.second)
             std::cout << "Block exists\n";
         else
             std::cout << "Block does not exist\n";
-    }
-    else
-    {
+    } else {
         std::cout << "Couldn't allocate block\n";
     }
 
@@ -124,8 +110,7 @@ int main(int argc, char *argv[])
     bool is_set = layer.storeBlock(ibp);
     if (!is_set)
         std::cout << "Unable to set\n";
-    else
-    {
+    else {
         std::cout << "Able to set\n";
         std::vector<bool> are_allocated = layer.areBlocksAllocated(indices_to_check);
         printAllocations(indices_to_check, are_allocated);

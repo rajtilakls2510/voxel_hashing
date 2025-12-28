@@ -1,55 +1,56 @@
 #pragma once
 
-#include "voxhash/core/cuda_utils.h"
-#include "voxhash/core/types.h"
 #include <memory>
 #include <vector>
 
-namespace voxhash
-{
+#include "voxhash/core/cuda_utils.h"
+#include "voxhash/core/types.h"
 
-    template <typename DataType>
-    class Vector
-    {
-    public:
-        using Ptr = std::shared_ptr<Vector<DataType>>;
-        Vector(size_t size, MemoryType type);
-        virtual ~Vector();
-        // Disable copy
-        Vector(const Vector &) = delete;
-        Vector &operator=(const Vector &) = delete;
-        Vector(Vector &&) noexcept;
-        Vector &operator=(Vector &&) noexcept;
-        DataType &operator[](size_t idx) const;
-        DataType *data() const;
-        size_t size() const;
-        MemoryType location() const;
-        virtual void clear(const CudaStream &stream = CudaStreamOwning());
-        DataType *release();
-        bool valid() const;
-        bool setFrom(const Vector<DataType> &src, const CudaStream &stream = CudaStreamOwning());
-        static std::shared_ptr<Vector<DataType>> copyFrom(const Vector<DataType> &src, const MemoryType target_type,
-                                                          const CudaStream &stream = CudaStreamOwning());
-        static std::shared_ptr<Vector<DataType>> copyFrom(const std::vector<DataType> &src, const MemoryType target_type, const CudaStream &stream = CudaStreamOwning());
+namespace voxhash {
 
-    protected:
-        DataType *ptr_{nullptr};
-        MemoryType type_{MemoryType::kHost};
-        size_t size_{0};
-        bool is_valid_{false};
-        void copyFromImpl(const Vector<DataType> &src,
-                          const CudaStream &stream);
-        virtual void allocateImpl(const CudaStream &cuda_stream = CudaStreamOwning());
-        std::shared_ptr<Vector<DataType>> createEmpty(MemoryType target_type) const;
-        void allocate(const CudaStream &cuda_stream = CudaStreamOwning());
-        void free(const CudaStream &cuda_stream = CudaStreamOwning());
-    };
+template <typename DataType>
+class Vector {
+public:
+    using Ptr = std::shared_ptr<Vector<DataType>>;
+    Vector(size_t size, MemoryType type);
+    virtual ~Vector();
+    // Disable copy
+    Vector(const Vector&) = delete;
+    Vector& operator=(const Vector&) = delete;
+    Vector(Vector&&) noexcept;
+    Vector& operator=(Vector&&) noexcept;
+    DataType& operator[](size_t idx) const;
+    DataType* data() const;
+    size_t size() const;
+    MemoryType location() const;
+    virtual void clear(const CudaStream& stream = CudaStreamOwning());
+    DataType* release();
+    bool valid() const;
+    bool setFrom(const Vector<DataType>& src, const CudaStream& stream = CudaStreamOwning());
+    static std::shared_ptr<Vector<DataType>> copyFrom(
+            const Vector<DataType>& src,
+            const MemoryType target_type,
+            const CudaStream& stream = CudaStreamOwning());
+    static std::shared_ptr<Vector<DataType>> copyFrom(
+            const std::vector<DataType>& src,
+            const MemoryType target_type,
+            const CudaStream& stream = CudaStreamOwning());
 
-    // Note: Stopping copy of Vector from std::vector<bool> because it stores bitvector
-    template <>
-    std::shared_ptr<Vector<bool>>
-    Vector<bool>::copyFrom(const std::vector<bool> &,
-                           MemoryType,
-                           const CudaStream &) = delete;
+protected:
+    DataType* ptr_{nullptr};
+    MemoryType type_{MemoryType::kHost};
+    size_t size_{0};
+    bool is_valid_{false};
+    void copyFromImpl(const Vector<DataType>& src, const CudaStream& stream);
+    virtual void allocateImpl(const CudaStream& cuda_stream = CudaStreamOwning());
+    std::shared_ptr<Vector<DataType>> createEmpty(MemoryType target_type) const;
+    void allocate(const CudaStream& cuda_stream = CudaStreamOwning());
+    void free(const CudaStream& cuda_stream = CudaStreamOwning());
+};
 
-} // namespace voxhash
+// Note: Stopping copy of Vector from std::vector<bool> because it stores bitvector
+template <>
+std::shared_ptr<Vector<bool>> Vector<bool>::copyFrom(
+        const std::vector<bool>&, MemoryType, const CudaStream&) = delete;
+
+}  // namespace voxhash

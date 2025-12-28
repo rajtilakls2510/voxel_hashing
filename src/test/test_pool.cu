@@ -1,17 +1,17 @@
+#include <chrono>
+#include <iostream>
+#include <thread>
+#include <vector>
+
 #include "voxhash/core/cuda_utils.h"
 #include "voxhash/core/memory_pool.h"
 #include "voxhash/core/voxels.h"
-#include <iostream>
-#include <chrono>
-#include <vector>
-#include <thread>
 using namespace std::chrono;
 
 using namespace voxhash;
 using TsdfBlock = Block<TsdfVoxel>;
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char* argv[]) {
     warmupCuda();
     MemoryType type = MemoryType::kDevice;
 
@@ -24,15 +24,13 @@ int main(int argc, char *argv[])
     {
         BlockMemoryPool<TsdfBlock> pool(min_alloc, max_alloc, type);
 
-        for (size_t i = 0; i < to_pull; i++)
-        {
+        for (size_t i = 0; i < to_pull; i++) {
             std::cout << "Pulling...\n";
             pulled_blocks.emplace_back(pool.popBlock());
             std::cout << "Size of pool: " << pool.size() << "\n";
         }
 
-        for (size_t i = 0; i < pulled_blocks.size(); i++)
-        {
+        for (size_t i = 0; i < pulled_blocks.size(); i++) {
             std::cout << "Pushing...\n";
             pool.pushBlock(pulled_blocks[i]);
             std::cout << "Size of pool: " << pool.size() << "\n";
