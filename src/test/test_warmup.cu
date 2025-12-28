@@ -1,11 +1,17 @@
 
-#include <iostream>
 #include <voxhash/core/cuda_utils.h>
 
-int main(int argc, char *argv[]) {
-  std::cout << "Warming up Cuda\n";
+#include <iostream>
 
-  voxhash::warmupCuda();
+using namespace voxhash;
 
-  std::cout << "Cuda warmed up\n";
+int main(int argc, char* argv[]) {
+    std::cout << "Warming up Cuda\n";
+
+    try {
+        warmupCuda();
+        std::cout << "Cuda warmed up\n";
+    } catch (const CudaError& e) {
+        std::cerr << "Failed to warmup cuda: " << e.message().c_str() << "\n";
+    }
 }
