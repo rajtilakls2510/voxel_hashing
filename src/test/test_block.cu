@@ -1,48 +1,92 @@
-#include <iostream>
-#include <string>
-
-#include "voxhash/core/block.h"
-#include "voxhash/core/cuda_utils.h"
+#include <gtest/gtest.h>
+#include <voxhash/core/block.h>
+#include <voxhash/core/cuda_utils.h>
 
 using namespace voxhash;
 
-int main(int argc, char* argv[]) {
-    warmupCuda();
+TEST(TestBlock, CreateSetAndGet) {
     MemoryType type = MemoryType::kDevice;
-    Block<float> b(type);
-    Index3D index_to_set(0, 0, 1);
-    float test_voxel_value = 100;
-    b.setVoxel(index_to_set, test_voxel_value);
 
-    Block<float>::Ptr b_h = Block<float>::copyFrom(b, MemoryType::kHost);
-    b_h->setVoxel(Index3D(0, 0, 2), 200);
+    EXPECT_NO_THROW({
+        Block<float> b(type);
+        Index3D index_to_set(0, 0, 1);
+        float test_voxel_value = 100;
+        b.setVoxel(index_to_set, test_voxel_value);
+        float retrieved_voxel_value = b.getVoxel(index_to_set);
+        EXPECT_EQ(test_voxel_value, retrieved_voxel_value);
+    });
+}
 
-    std::cout << "Data (" << b_h->size() << "): ";
-    for (size_t i = 0; i < b_h->size(); i++) {
-        std::cout << b_h->data()[i] << ",";
-    }
-    std::cout << "\n";
+TEST(TestBlock, CopySetAndGet) {
+    MemoryType type = MemoryType::kDevice;
 
-    float voxel_value = b_h->getVoxel(Index3D(0, 0, 1));
-    std::cout << "Voxel Value before clearing: " << voxel_value << "\n";
-    b_h->clear();
-    voxel_value = b_h->getVoxel(Index3D(0, 0, 1));
-    std::cout << " Voxel Value after clearing: " << voxel_value << "\n";
+    EXPECT_NO_THROW({
+        Block<float> b(type);
+        Index3D index_to_set(0, 0, 1);
+        float test_voxel_value = 100;
+        b.setVoxel(index_to_set, test_voxel_value);
 
-    bool isSet = b_h->setFrom(b);
-    if (!isSet)
-        std::cout << "Not Set\n";
-    else {
-        std::cout << "Data (" << b_h->size() << "): ";
-        for (size_t i = 0; i < b_h->size(); i++) {
-            std::cout << b_h->data()[i] << ",";
-        }
-        std::cout << "\n";
-    }
+        Block<float>::Ptr b_h = Block<float>::copyFrom(b, MemoryType::kHost);
+        Index3D index_to_set2(0, 0, 2);
+        float test_voxel_value2 = 200;
+        b_h->setVoxel(index_to_set2, test_voxel_value2);
 
-    float* ptr = b.release();
-    cudaFree(ptr);
-    std::cout << "Valid: " << std::boolalpha << b.valid() << "\n";
+        float retrieved_voxel_value = b_h->getVoxel(index_to_set);
+        float retrieved_voxel_value2 = b_h->getVoxel(index_to_set2);
 
-    return 0;
+        EXPECT_EQ(test_voxel_value, retrieved_voxel_value);
+        EXPECT_EQ(test_voxel_value2, retrieved_voxel_value2);
+    });
+}
+
+TEST(TestBlock, Clear) {
+    MemoryType type = MemoryType::kDevice;
+
+    EXPECT_NO_THROW({
+        Block<float> b(type);
+        Index3D index_to_set(0, 0, 1);
+        float test_voxel_value = 100;
+        b.setVoxel(index_to_set, test_voxel_value);
+
+        float retrieved_voxel_value = b.getVoxel(index_to_set);
+        b.clear();
+        float retrieved_voxel_value2 = b.getVoxel(index_to_set);
+
+        EXPECT_EQ(test_voxel_value, retrieved_voxel_value);
+        EXPECT_NE(test_voxel_value, retrieved_voxel_value2);
+    });
+}
+
+TEST(TestBlock, SetFrom) {
+    MemoryType type = MemoryType::kDevice;
+
+    EXPECT_NO_THROW({
+        Block<float> b(type);
+        Index3D index_to_set(0, 0, 1);
+        float test_voxel_value = 100;
+        b.setVoxel(index_to_set, test_voxel_value);
+
+        Block<float>::Ptr b_h = Block<float>::copyFrom(b, MemoryType::kHost);
+        b_h->clear();
+        EXPECT_NE(b_h->getVoxel(index_to_set), test_voxel_value);
+
+        EXPECT_TRUE(b_h->setFrom(b));
+        EXPECT_EQ(b_h->getVoxel(index_to_set), test_voxel_value);
+    });
+}
+
+TEST(TestBlock, Release) {
+    MemoryType type = MemoryType::kDevice;
+
+    EXPECT_NO_THROW({
+        Block<float> b(type);
+        Index3D index_to_set(0, 0, 1);
+        float test_voxel_value = 100;
+        b.setVoxel(index_to_set, test_voxel_value);
+
+        EXPECT_TRUE(b.valid());
+        float* ptr = b.release();
+        EXPECT_FALSE(b.valid());
+        CUDA_CHECK(cudaFree(ptr));
+    });
 }

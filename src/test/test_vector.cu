@@ -66,6 +66,7 @@ TEST(TestVector, Release) {
         MemoryType type = MemoryType::kDevice;
 
         Vector<float> v(size, type);
+        EXPECT_TRUE(v.valid());
         float* ptr = v.release();
         EXPECT_FALSE(v.valid());
         CUDA_CHECK(cudaFree(ptr));

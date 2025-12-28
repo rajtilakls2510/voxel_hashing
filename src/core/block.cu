@@ -12,7 +12,7 @@ std::shared_ptr<Block<VoxelType>> Block<VoxelType>::copyFrom(
         const Block<VoxelType>& src, MemoryType target_type, const CudaStream& stream) {
     auto dst = std::make_shared<Block<VoxelType>>(target_type);
 
-    checkCudaErrors(cudaMemcpyAsync(
+    CUDA_CHECK(cudaMemcpyAsync(
             dst->data(), src.data(), sizeof(VoxelType) * kNumVoxels, cudaMemcpyDefault, stream));
 
     return dst;
@@ -21,7 +21,7 @@ std::shared_ptr<Block<VoxelType>> Block<VoxelType>::copyFrom(
 template <typename VoxelType>
 VoxelType Block<VoxelType>::getVoxel(const Index3D& index, const CudaStream& cuda_stream) const {
     VoxelType v;
-    checkCudaErrors(cudaMemcpyAsync(
+    CUDA_CHECK(cudaMemcpyAsync(
             &v, this->ptr_ + idx(index), sizeof(VoxelType), cudaMemcpyDefault, cuda_stream));
     return v;
 }
@@ -29,7 +29,7 @@ VoxelType Block<VoxelType>::getVoxel(const Index3D& index, const CudaStream& cud
 template <typename VoxelType>
 void Block<VoxelType>::setVoxel(
         const Index3D& index, const VoxelType value, const CudaStream& cuda_stream) {
-    checkCudaErrors(cudaMemcpyAsync(
+    CUDA_CHECK(cudaMemcpyAsync(
             this->ptr_ + idx(index), &value, sizeof(VoxelType), cudaMemcpyDefault, cuda_stream));
 }
 
@@ -40,7 +40,7 @@ size_t Block<VoxelType>::idx(const Index3D& index) {
 
 template <typename VoxelType>
 void Block<VoxelType>::clear(const CudaStream& cuda_stream) {
-    checkCudaErrors(cudaMemsetAsync(this->ptr_, 0, sizeof(VoxelType) * kNumVoxels, cuda_stream));
+    CUDA_CHECK(cudaMemsetAsync(this->ptr_, 0, sizeof(VoxelType) * kNumVoxels, cuda_stream));
 }
 
 template class Block<int>;
