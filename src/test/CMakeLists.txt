@@ -28,17 +28,17 @@ add_cuda_gtest(test_block test_block.cu)
 add_cuda_gtest(test_indexing test_indexing.cu)
 add_cuda_gtest(test_pool test_pool.cu)
 
-# add_executable(test_tsdf_block_voxels test_tsdf_block_voxels.cu)
-# target_link_libraries(test_tsdf_block_voxels PUBLIC voxhash)
+add_executable(test_tsdf_block_voxels test_tsdf_block_voxels.cu)
+target_link_libraries(test_tsdf_block_voxels PUBLIC voxhash)
 
-# add_executable(test_semantic_block_voxels test_semantic_block_voxels.cu)
-# target_link_libraries(test_semantic_block_voxels PUBLIC voxhash)
+add_executable(test_semantic_block_voxels test_semantic_block_voxels.cu)
+target_link_libraries(test_semantic_block_voxels PUBLIC voxhash)
 
-# add_executable(test_hash test_hash.cu)
-# target_link_libraries(test_hash PUBLIC voxhash)
+add_executable(test_hash test_hash.cu)
+target_link_libraries(test_hash PUBLIC voxhash)
 
-# add_executable(test_layer test_layer.cu)
-# target_link_libraries(test_layer PUBLIC voxhash)
+add_executable(test_layer test_layer.cu)
+target_link_libraries(test_layer PUBLIC voxhash)
 
-# add_executable(test_voxel_layer test_voxel_layer.cu)
-# target_link_libraries(test_voxel_layer PUBLIC voxhash)
+add_executable(test_voxel_layer test_voxel_layer.cu)
+target_link_libraries(test_voxel_layer PUBLIC voxhash)

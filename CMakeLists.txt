@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(voxel_hashing LANGUAGES CXX CUDA)
 
+set(CMAKE_CUDA_ARCHITECTURES 86)
+
 # -------------------------------
 # Library: stdgpu
 # -------------------------------

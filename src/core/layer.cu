@@ -252,8 +252,8 @@ Vector<typename BlockType::VoxelType> VoxelBlockLayer<BlockType>::getVoxelsInter
         const int kNumBlocks = voxel_indices.size() / kNumThreads + 1;
         getVoxelsKernel<BlockType><<<kNumBlocks, kNumThreads, 0, stream>>>(
                 voxel_indices.size(), block_ptrs->data(), vi->data(), voxels.data());
+        CUDA_CHECK(cudaGetLastError());
         stream.synchronize();
-        checkCudaErrors(cudaPeekAtLastError());
     }
     return voxels;
 }
@@ -348,8 +348,8 @@ Vector<Bool> VoxelBlockLayer<BlockType>::storeVoxelsInternal(
                 vi->data(),
                 voxels_to_layer->data(),
                 store_success.data());
+        CUDA_CHECK(cudaGetLastError());
         stream.synchronize();
-        checkCudaErrors(cudaPeekAtLastError());
     }
     return store_success;
 }

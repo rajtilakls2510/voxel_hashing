@@ -33,7 +33,10 @@ public:
 
     BlockLayer() = delete;
     BlockLayer(const BlockLayerParams& params);
-    virtual ~BlockLayer() {}
+    virtual ~BlockLayer() {
+        const std::vector<Index3D> indices = getAllBlockIndices(); 
+        deAllocateBlocks(indices);
+    }
 
     virtual size_t numBlocks() const { return hash_.size(); }
     virtual size_t numPreAllocatedBlocksInPool() const { return pool_.size(); }

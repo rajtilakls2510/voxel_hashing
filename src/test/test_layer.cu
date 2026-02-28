@@ -48,77 +48,81 @@ void printIndices(const std::vector<Index3D>& indices) {
 }
 
 int main(int argc, char* argv[]) {
-    warmupCuda();
+    try {
+        warmupCuda();
+        
+        BlockLayerParams p;
+        p.block_size = 0.4;  // m
+        p.memory_type = MemoryType::kDevice;
+        p.min_allocated_blocks = 2;
+        p.max_allocated_blocks = 5;
 
-    BlockLayerParams p;
-    p.block_size = 0.4;  // m
-    p.memory_type = MemoryType::kDevice;
-    p.min_allocated_blocks = 2;
-    p.max_allocated_blocks = 5;
+        TsdfLayer layer(p);
 
-    TsdfLayer layer(p);
+        Index3D index_to_allocate(10, 1, 2);
+        IndexBlockPair<TsdfBlock> block_pair = layer.getBlock(index_to_allocate);
 
-    Index3D index_to_allocate(10, 1, 2);
-    IndexBlockPair<TsdfBlock> block_pair = layer.getBlock(index_to_allocate);
-
-    if (block_pair.second)
-        std::cout << "Block exists\n";
-    else
-        std::cout << "Block does not exist\n";
-
-    bool allocated = layer.allocateBlock(index_to_allocate);
-    if (allocated) {
-        block_pair = layer.getBlock(index_to_allocate);
         if (block_pair.second)
             std::cout << "Block exists\n";
         else
             std::cout << "Block does not exist\n";
-    } else {
-        std::cout << "Couldn't allocate block\n";
-    }
 
-    std::vector<Index3D> indices_to_check;
-    indices_to_check.emplace_back(0, 1, 0);
-    indices_to_check.emplace_back(1, 0, 0);
-    indices_to_check.emplace_back(0, 0, 1);
+        bool allocated = layer.allocateBlock(index_to_allocate);
+        if (allocated) {
+            block_pair = layer.getBlock(index_to_allocate);
+            if (block_pair.second)
+                std::cout << "Block exists\n";
+            else
+                std::cout << "Block does not exist\n";
+        } else {
+            std::cout << "Couldn't allocate block\n";
+        }
 
-    ConstIndexBlockPairs<TsdfBlock> index_block_pairs = layer.getBlocks(indices_to_check);
-    printAllocations(index_block_pairs);
+        std::vector<Index3D> indices_to_check;
+        indices_to_check.emplace_back(0, 1, 0);
+        indices_to_check.emplace_back(1, 0, 0);
+        indices_to_check.emplace_back(0, 0, 1);
 
-    std::vector<Index3D> indices_to_allocate;
-    indices_to_allocate.emplace_back(0, 1, 0);
-    indices_to_allocate.emplace_back(0, 0, 1);
+        ConstIndexBlockPairs<TsdfBlock> index_block_pairs = layer.getBlocks(indices_to_check);
+        printAllocations(index_block_pairs);
 
-    std::vector<bool> able_to_allocate = layer.allocateBlocks(indices_to_allocate);
-    printAllocations(indices_to_allocate, able_to_allocate);
+        std::vector<Index3D> indices_to_allocate;
+        indices_to_allocate.emplace_back(0, 1, 0);
+        indices_to_allocate.emplace_back(0, 0, 1);
 
-    ConstIndexBlockPairs<TsdfBlock> index_block_pairs2 = layer.getBlocks(indices_to_check);
-    printAllocations(index_block_pairs2);
+        std::vector<bool> able_to_allocate = layer.allocateBlocks(indices_to_allocate);
+        printAllocations(indices_to_allocate, able_to_allocate);
 
-    std::vector<Index3D> all_block_indices = layer.getAllBlockIndices();
-    std::vector<TsdfBlock::Ptr> all_block_ptrs = layer.getAllBlockPointers();
-    printIndices(all_block_indices);
+        ConstIndexBlockPairs<TsdfBlock> index_block_pairs2 = layer.getBlocks(indices_to_check);
+        printAllocations(index_block_pairs2);
 
-    std::vector<bool> are_allocated = layer.areBlocksAllocated(indices_to_check);
-    printAllocations(indices_to_check, are_allocated);
+        std::vector<Index3D> all_block_indices = layer.getAllBlockIndices();
+        std::vector<TsdfBlock::Ptr> all_block_ptrs = layer.getAllBlockPointers();
+        printIndices(all_block_indices);
 
-    TsdfBlock::Ptr block_to_store = std::make_shared<TsdfBlock>(MemoryType::kHost);
-    TsdfVoxel vox = {1.0f, 10.0f};
-    Index3D index_to_set(1, 0, 0);
-    block_to_store->setVoxel(index_to_set, vox);
-    IndexBlockPair<TsdfBlock> ibp = {index_to_set, block_to_store};
-    bool is_set = layer.storeBlock(ibp);
-    if (!is_set)
-        std::cout << "Unable to set\n";
-    else {
-        std::cout << "Able to set\n";
         std::vector<bool> are_allocated = layer.areBlocksAllocated(indices_to_check);
         printAllocations(indices_to_check, are_allocated);
-    }
 
-    layer.deAllocateBlock(Index3D(0, 1, 0));
-    all_block_indices = layer.getAllBlockIndices();
-    printIndices(all_block_indices);
+        TsdfBlock::Ptr block_to_store = std::make_shared<TsdfBlock>(MemoryType::kHost);
+        TsdfVoxel vox = {1.0f, 10.0f};
+        Index3D index_to_set(1, 0, 0);
+        block_to_store->setVoxel(index_to_set, vox);
+        IndexBlockPair<TsdfBlock> ibp = {index_to_set, block_to_store};
+        bool is_set = layer.storeBlock(ibp);
+        if (!is_set)
+            std::cout << "Unable to set\n";
+        else {
+            std::cout << "Able to set\n";
+            std::vector<bool> are_allocated = layer.areBlocksAllocated(indices_to_check);
+            printAllocations(indices_to_check, are_allocated);
+        }
+
+        layer.deAllocateBlock(Index3D(0, 1, 0));
+        all_block_indices = layer.getAllBlockIndices();
+        printIndices(all_block_indices);
+    } catch (const CudaError& e) {
+        std::cerr << e.message();
+    }
 
     return 0;
 }
