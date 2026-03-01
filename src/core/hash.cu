@@ -82,9 +82,69 @@ void CPUHashStrategy<BlockType>::eraseValues(
     for (size_t idx = 0; idx < keys.size(); idx++) erased[idx] = eraseValue(keys[idx]);
 }
 
+template <typename BlockType>
+GPUHashStrategy<BlockType>::GPUHashStrategy(
+        std::shared_ptr<CudaStream> cuda_stream, size_t num_increase_objects, MemoryType type)
+    : HashStrategy<BlockType>(cuda_stream),
+      num_increase_objects_(num_increase_objects),
+      current_objects_(num_increase_objects),
+      type_(type) {
+    hash_ = GPUIndex3DHashMapType<BlockType>::createDeviceObject(current_objects_);
+}
+
+template <typename BlockType>
+GPUHashStrategy<BlockType>::~GPUHashStrategy() {
+    GPUIndex3DHashMapType<BlockType>::destroyDeviceObject(hash_);
+}
+
+template <typename BlockType>
+__global__ void findSingleValue(
+        const Index3D key,
+        typename BlockType::VoxelType* out_value,
+        int* out_found,
+        GPUIndex3DHashMapType<BlockType> map) {
+    auto it = map.find(key);
+
+    if (it != map.end()) {
+        *out_value = it->second;
+        *out_found = 1;
+    } else {
+        *out_found = 0;
+    }
+}
+
+template <typename BlockType>
+bool GPUHashStrategy<BlockType>::findValue(
+        const Index3D key, typename BlockType::Ptr& value) const {
+    typename BlockType::VoxelType* d_value = nullptr;
+    int* d_found = nullptr;
+    if (type_ == MemoryType::kUnified) {
+        CUDA_CHECK(cudaMallocManaged(
+                &d_value, sizeof(typename BlockType::VoxelType), cudaMemAttachGlobal));
+        CUDA_CHECK(cudaMallocManaged(&d_found, sizeof(int), cudaMemAttachGlobal));
+    } else {
+        CUDA_CHECK(
+                cudaMallocAsync(&d_value, sizeof(typename BlockType::VoxelType), *this->stream_));
+        CUDA_CHECK(cudaMallocAsync(&d_found, sizeof(int), *this->stream_));
+    }
+    CUDA_CHECK(cudaMemset(d_found, 0, sizeof(int)));
+
+    findSingleValue<BlockType><<<1, 1>>>(key, d_value, d_found, hash_);
+    CUDA_CHECK(cudaGetLastError());
+    this->stream_->synchronize();
+
+    int h_found;
+    CUDA_CHECK(cudaMemcpyAsync(&h_found, d_found, sizeof(int), cudaMemcpyDefault, *this->stream_));
+    return h_found == 1;
+}
+
 template class HashStrategy<Block<int>>;
 template class HashStrategy<Block<float>>;
 
 template class CPUHashStrategy<Block<int>>;
 template class CPUHashStrategy<Block<float>>;
+
+template class GPUHashStrategy<Block<int>>;
+template class GPUHashStrategy<Block<float>>;
+// TODO: Add Block Type Strategies
 }  // namespace voxhash

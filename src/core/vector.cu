@@ -31,7 +31,6 @@ void Vector<DataType>::allocate(const CudaStream& cuda_stream) {
 template <typename DataType>
 void Vector<DataType>::free(const CudaStream& cuda_stream) {
     if (ptr_ != nullptr) {
-        // std::cout << "Freeing\n";
         if (type_ == MemoryType::kHost) {
             CUDA_CHECK(cudaFreeHost(ptr_));
         } else if (type_ == MemoryType::kDevice) {

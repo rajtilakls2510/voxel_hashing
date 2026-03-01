@@ -1,5 +1,11 @@
 #pragma once
 
+#include <stdgpu/iterator.h>  // device_begin, device_end
+#include <stdgpu/memory.h>    // createDeviceArray, destroyDeviceArray
+#include <stdgpu/platform.h>  // STDGPU_HOST_DEVICE
+#include <thrust/transform.h>
+
+#include <stdgpu/unordered_map.cuh>  // stdgpu::unordered_map
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -22,6 +28,8 @@ struct Index3DHash {
 
 template <typename BlockType>
 using Index3DHashMapType = std::unordered_map<Index3D, typename BlockType::Ptr, Index3DHash>;
+template <typename BlockType>
+using GPUIndex3DHashMapType = stdgpu::unordered_map<Index3D, typename BlockType::Ptr, Index3DHash>;
 
 template <typename BlockType>
 class HashStrategy {
@@ -74,10 +82,24 @@ public:
     virtual void eraseValues(const std::vector<Index3D> keys, std::vector<bool>& erased) override;
     virtual size_t size() const override { return hash_.size(); }
 
-private:
+protected:
     Index3DHashMapType<BlockType> hash_;
 };
 
-// class
+template <typename BlockType>
+class GPUHashStrategy : public HashStrategy<BlockType> {
+public:
+    GPUHashStrategy(
+            std::shared_ptr<CudaStream> cuda_stream = std::make_shared<CudaStreamOwning>(),
+            size_t num_increase_objects = 1024,
+            MemoryType type = MemoryType::kDevice);
+    virtual ~GPUHashStrategy() override;
+    virtual bool findValue(const Index3D key, typename BlockType::Ptr& value) const override;
+
+protected:
+    size_t num_increase_objects_, current_objects_;
+    GPUIndex3DHashMapType<BlockType> hash_;
+    MemoryType type_{MemoryType::kHost};
+};
 
 }  // namespace voxhash

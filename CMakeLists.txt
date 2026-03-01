@@ -42,7 +42,7 @@ add_library(voxhash SHARED
     src/core/hash.cu
 )
 
-target_link_libraries(voxhash PUBLIC cuda cudart)
+target_link_libraries(voxhash PUBLIC cuda cudart stdgpu::stdgpu)
 
 target_include_directories(voxhash
     PUBLIC

@@ -8,6 +8,8 @@
 using namespace voxhash;
 using FloatBlock = Block<float>;
 
+// =========================== Test CPU Hash Strategy ===========================
+
 TEST(TestCpuHash, FindOneInsertOneFindOne) {
     std::shared_ptr<HashStrategy<FloatBlock>> hash =
             std::make_shared<CPUHashStrategy<FloatBlock>>();
@@ -177,4 +179,32 @@ TEST(TestCpuHash, InsertManyEraseManyGetAll) {
     }
 
     EXPECT_EQ(hash->size(), N - 2);
+}
+
+// =========================== Test GPU Hash Strategy ===========================
+
+TEST(TestGpuHash, FindOneInsertOneFindOne) {
+    std::shared_ptr<CudaStream> stream = std::make_shared<CudaStreamOwning>();
+    std::shared_ptr<HashStrategy<FloatBlock>> hash =
+            std::make_shared<GPUHashStrategy<FloatBlock>>(stream);
+
+    // Search for a non-existing value in the hash
+    Index3D index_to_search(0, 1, 0);
+    FloatBlock::Ptr dummy_value = nullptr;
+    EXPECT_FALSE(hash->findValue(index_to_search, dummy_value));
+
+    // // Insert a value
+    // FloatBlock::Ptr value_to_insert = std::make_shared<FloatBlock>(MemoryType::kHost);
+    // Index3D voxel_idx_to_set(1, 0, 0);
+    // value_to_insert->setVoxel(voxel_idx_to_set, 5.0);
+
+    // EXPECT_TRUE(hash->insertValue(index_to_search, value_to_insert));
+
+    // // Search for the recently inserted value
+    // EXPECT_TRUE(hash->findValue(index_to_search, dummy_value));
+    // EXPECT_DOUBLE_EQ(dummy_value->getVoxel(voxel_idx_to_set), 5.0);
+
+    // // Insertion to the same key but different values should be rejected
+    // value_to_insert = nullptr;
+    // EXPECT_FALSE(hash->insertValue(index_to_search, value_to_insert));
 }
