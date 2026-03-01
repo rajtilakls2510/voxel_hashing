@@ -21,7 +21,7 @@ struct Index3DHash {
     static constexpr size_t sl = 17191;
     static constexpr size_t sl2 = sl * sl;
 
-    std::size_t operator()(const Index3D& index) const {
+    __host__ __device__ std::size_t operator()(const Index3D& index) const {
         return static_cast<size_t>(index.x + index.y * sl + index.z * sl2);
     }
 };
@@ -29,7 +29,9 @@ struct Index3DHash {
 template <typename BlockType>
 using Index3DHashMapType = std::unordered_map<Index3D, typename BlockType::Ptr, Index3DHash>;
 template <typename BlockType>
-using GPUIndex3DHashMapType = stdgpu::unordered_map<Index3D, typename BlockType::Ptr, Index3DHash>;
+using CPUHashMapType = std::unordered_map<Index3D, typename BlockType::VoxelType*, Index3DHash>;
+template <typename BlockType>
+using GPUHashMapType = stdgpu::unordered_map<Index3D, typename BlockType::VoxelType*, Index3DHash>;
 
 template <typename BlockType>
 class HashStrategy {
@@ -40,51 +42,45 @@ public:
         : stream_(std::move(cuda_stream)) {}
     virtual ~HashStrategy() = default;
 
-    virtual bool findValue(const Index3D key, typename BlockType::Ptr& value) const = 0;
-    virtual void findValues(
-            const std::vector<Index3D> keys,
-            std::vector<typename BlockType::Ptr>& values,
-            std::vector<bool>& found) const = 0;
-    virtual std::vector<Index3D> getAllKeys() const = 0;
-    virtual std::vector<typename BlockType::Ptr> getAllValues() const = 0;
-    virtual bool insertValue(const Index3D key, const typename BlockType::Ptr value) = 0;
-    virtual void insertValues(
-            const std::vector<Index3D> keys,
-            const std::vector<typename BlockType::Ptr> values,
-            std::vector<bool>& inserted) = 0;
-    virtual bool eraseValue(const Index3D key) = 0;
-    virtual void eraseValues(const std::vector<Index3D> keys, std::vector<bool>& erased) = 0;
+    virtual std::pair<Vector<Bool>, Vector<typename BlockType::VoxelType*>> findValues(
+            const Vector<Index3D>& keys) const = 0;
+    virtual std::pair<Vector<Index3D>, Vector<typename BlockType::VoxelType*>> getAllKeyValues()
+            const = 0;
+    virtual Vector<Bool> insertValues(
+            const Vector<Index3D>& keys, const Vector<typename BlockType::VoxelType*>& values) = 0;
+    // virtual Bool eraseValue(const Index3D key) = 0;
+    // virtual Vector<Bool> eraseValues(const Vector<Index3D>& keys) = 0;
     virtual size_t size() const = 0;
 
 protected:
     std::shared_ptr<CudaStream> stream_;
 };
 
-template <typename BlockType>
-class CPUHashStrategy : public HashStrategy<BlockType> {
-public:
-    CPUHashStrategy() : HashStrategy<BlockType>() {}
-    virtual ~CPUHashStrategy() {}
+// template <typename BlockType>
+// class CPUHashStrategy : public HashStrategy<BlockType> {
+// public:
+//     CPUHashStrategy() : HashStrategy<BlockType>() {}
+//     virtual ~CPUHashStrategy() {}
 
-    virtual bool findValue(const Index3D key, typename BlockType::Ptr& value) const override;
-    virtual void findValues(
-            const std::vector<Index3D> keys,
-            std::vector<typename BlockType::Ptr>& values,
-            std::vector<bool>& found) const override;
-    virtual std::vector<Index3D> getAllKeys() const;
-    virtual std::vector<typename BlockType::Ptr> getAllValues() const;
-    virtual bool insertValue(const Index3D key, const typename BlockType::Ptr value) override;
-    virtual void insertValues(
-            const std::vector<Index3D> keys,
-            const std::vector<typename BlockType::Ptr> values,
-            std::vector<bool>& inserted);
-    virtual bool eraseValue(const Index3D key) override;
-    virtual void eraseValues(const std::vector<Index3D> keys, std::vector<bool>& erased) override;
-    virtual size_t size() const override { return hash_.size(); }
+//     virtual bool findValue(const Index3D key, typename BlockType::Ptr& value) const override;
+//     virtual void findValues(
+//             const std::vector<Index3D> keys,
+//             std::vector<typename BlockType::Ptr>& values,
+//             std::vector<bool>& found) const override;
+//     virtual std::vector<Index3D> getAllKeys() const;
+//     virtual std::vector<typename BlockType::Ptr> getAllValues() const;
+//     virtual bool insertValue(const Index3D key, const typename BlockType::Ptr value) override;
+//     virtual void insertValues(
+//             const std::vector<Index3D> keys,
+//             const std::vector<typename BlockType::Ptr> values,
+//             std::vector<bool>& inserted);
+//     virtual bool eraseValue(const Index3D key) override;
+//     virtual void eraseValues(const std::vector<Index3D> keys, std::vector<bool>& erased)
+//     override; virtual size_t size() const override { return hash_.size(); }
 
-protected:
-    Index3DHashMapType<BlockType> hash_;
-};
+// protected:
+//     Index3DHashMapType<BlockType> hash_;
+// };
 
 template <typename BlockType>
 class GPUHashStrategy : public HashStrategy<BlockType> {
@@ -94,12 +90,20 @@ public:
             size_t num_increase_objects = 1024,
             MemoryType type = MemoryType::kDevice);
     virtual ~GPUHashStrategy() override;
-    virtual bool findValue(const Index3D key, typename BlockType::Ptr& value) const override;
+    virtual std::pair<Vector<Bool>, Vector<typename BlockType::VoxelType*>> findValues(
+            const Vector<Index3D>& keys) const;
+    virtual Vector<Bool> insertValues(
+            const Vector<Index3D>& keys, const Vector<typename BlockType::VoxelType*>& values);
+    virtual std::pair<Vector<Index3D>, Vector<typename BlockType::VoxelType*>> getAllKeyValues()
+            const;
+    virtual size_t size() const override { return hash_.size(); }
 
 protected:
     size_t num_increase_objects_, current_objects_;
-    GPUIndex3DHashMapType<BlockType> hash_;
-    MemoryType type_{MemoryType::kHost};
+    GPUHashMapType<BlockType> hash_;
+    MemoryType type_{MemoryType::kDevice};
+
+    void recreateHash(size_t increase_factor);
 };
 
 }  // namespace voxhash

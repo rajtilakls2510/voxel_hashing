@@ -9,6 +9,8 @@
 
 namespace voxhash {
 
+#define THREADS_PER_BLOCK 256
+
 // Do not use (UNSAFE). Switch to CUDA_CHECK()
 #define checkCudaErrors(val) check_cuda_error_value((val), #val, __FILE__, __LINE__)
 
