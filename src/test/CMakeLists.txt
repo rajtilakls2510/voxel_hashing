@@ -27,6 +27,7 @@ add_cuda_gtest(test_vector test_vector.cu)
 add_cuda_gtest(test_block test_block.cu)
 add_cuda_gtest(test_indexing test_indexing.cu)
 add_cuda_gtest(test_pool test_pool.cu)
+add_cuda_gtest(test_hash_ test_hash_.cu)  # TODO: Cleanup
 
 add_executable(test_tsdf_block_voxels test_tsdf_block_voxels.cu)
 target_link_libraries(test_tsdf_block_voxels PUBLIC voxhash)
