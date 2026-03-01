@@ -226,11 +226,7 @@ TEST(TestGpuHash, FindOneInsertManyFindMany) {
     for (size_t i = 0; i < num_indices_to_search; i++) {
         indices_to_search2.data()[i] = Index3D(i, 0, 0);
     }
-    // start_t = high_resolution_clock::now();
     auto find_result2 = hash->findValues(indices_to_search2);
-    // end_t = high_resolution_clock::now();
-    // std::cout << "Time taken to find " << num_indices_to_search
-    //           << " values: " << duration_cast<microseconds>(end_t - start_t).count() << " us\n";
 
     Vector<Bool>::Ptr found_h2 =
             Vector<Bool>::copyFrom(find_result2.first, MemoryType::kHost, *stream);
@@ -304,5 +300,56 @@ TEST(TestGpuHash, InsertManyGetAll) {
         EXPECT_LE(
                 *(all_values->data()[i] + FloatBlock::idx(Index3D(0, 1, 0))),
                 2 * num_values_to_insert + 1);
+    }
+}
+
+TEST(TestGpuHash, InsertManyEraseManyFindMany) {
+    std::shared_ptr<CudaStream> stream = std::make_shared<CudaStreamOwning>();
+    std::shared_ptr<HashStrategy<FloatBlock>> hash =
+            std::make_shared<GPUHashStrategy<FloatBlock>>(stream, 5);
+
+    // Insert values
+    size_t num_values_to_insert = 1024;
+    Vector<Index3D> indices_to_insert(num_values_to_insert, MemoryType::kHost);
+    Vector<float*> values_to_insert(num_values_to_insert, MemoryType::kHost);
+    for (size_t i = 0; i < num_values_to_insert; i++) {
+        indices_to_insert.data()[i] = Index3D(i, 0, 0);
+        FloatBlock f(MemoryType::kHost);
+        f.setVoxel(Index3D(0, 1, 0), i + 1);
+        values_to_insert.data()[i] = f.release();
+    }
+    Vector<Bool> inserted = hash->insertValues(indices_to_insert, values_to_insert);
+    Vector<Bool>::Ptr inserted_h = Vector<Bool>::copyFrom(inserted, MemoryType::kHost);
+    stream->synchronize();
+    for (size_t i = 0; i < num_values_to_insert; i++) {
+        EXPECT_EQ(inserted_h->data()[i], 1);
+    }
+
+    // Erase the first half of values
+    size_t num_values_to_erase = num_values_to_insert / 2;
+    Vector<Index3D> indices_to_erase(num_values_to_erase, MemoryType::kHost);
+    for (size_t i = 0; i < num_values_to_erase; i++) {
+        indices_to_erase.data()[i] = Index3D(i, 0, 0);
+    }
+    Vector<Bool> erased = hash->eraseValues(indices_to_erase);
+    Vector<Bool>::Ptr erased_h = Vector<Bool>::copyFrom(erased, MemoryType::kHost);
+    stream->synchronize();
+    for (size_t i = 0; i < num_values_to_erase; i++) {
+        EXPECT_EQ(erased_h->data()[i], 1);
+    }
+
+    // Find all keys and check if they exist in hash
+    auto result = hash->findValues(indices_to_insert);
+    Vector<Bool>::Ptr found_h = Vector<Bool>::copyFrom(result.first, MemoryType::kHost, *stream);
+    Vector<float*>::Ptr values_h =
+            Vector<float*>::copyFrom(result.second, MemoryType::kHost, *stream);
+    stream->synchronize();
+    for (size_t i = 0; i < num_values_to_insert; i++) {
+        if (i < num_values_to_erase)
+            EXPECT_EQ(found_h->data()[i], 0);
+        else {
+            EXPECT_EQ(found_h->data()[i], 1);
+            EXPECT_DOUBLE_EQ(*(values_h->data()[i] + FloatBlock::idx(Index3D(0, 1, 0))), i + 1);
+        }
     }
 }

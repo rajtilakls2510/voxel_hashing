@@ -199,17 +199,6 @@ Vector<Bool> GPUHashStrategy<BlockType>::insertValues(
     return inserted;
 }
 
-// template <typename BlockType>
-// __global__ void hashCopyKernel(
-//         GPUHashMapType<BlockType> hash_in, GPUHashMapType<BlockType> hash_out) {
-//     int idx = threadIdx.x + blockIdx.x * blockDim.x;
-
-//     if (idx < hash_in.max_size() && hash_in.occupied(idx)) {
-//         const auto pair = *(hash_in.begin() + idx);
-//         auto result = hash_out.insert(pair);
-//     }
-// }
-
 template <typename BlockType>
 struct extract_kv {
     __host__ __device__ thrust::tuple<Index3D, typename BlockType::VoxelType*> operator()(
@@ -255,6 +244,39 @@ void GPUHashStrategy<BlockType>::recreateHash(size_t increase_factor) {
     hash_ = new_hash;
     GPUHashMapType<BlockType>::destroyDeviceObject(old_hash);
     current_objects_ = increase_factor;
+}
+
+template <typename BlockType>
+__global__ void eraseKeysKernel(
+        Index3D* keys, Bool* erased, GPUHashMapType<BlockType> map, size_t num_keys) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= num_keys) return;
+    erased[i] = map.erase(keys[i]);
+}
+
+template <typename BlockType>
+Vector<Bool> GPUHashStrategy<BlockType>::eraseValues(const Vector<Index3D>& keys) {
+    size_t num_queries = keys.size();
+
+    std::shared_ptr<Vector<Index3D>> keys_ptr = nullptr;
+    Index3D* keys_data = nullptr;
+    if (keys.location() == type_) {
+        keys_data = keys.data();
+    } else {
+        keys_ptr = Vector<Index3D>::copyFrom(keys, type_, *this->stream_);
+        keys_data = keys_ptr->data();
+    }
+
+    Vector<Bool> erased(num_queries, type_);
+
+    if (num_queries > 0) {
+        int bpg = (num_queries + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
+        eraseKeysKernel<BlockType><<<bpg, THREADS_PER_BLOCK, 0, *this->stream_>>>(
+                keys_data, erased.data(), hash_, num_queries);
+        CUDA_CHECK(cudaGetLastError());
+        this->stream_->synchronize();
+    }
+    return erased;
 }
 
 template class HashStrategy<Block<int>>;

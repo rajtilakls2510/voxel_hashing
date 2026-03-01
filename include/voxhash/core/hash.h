@@ -48,8 +48,7 @@ public:
             const = 0;
     virtual Vector<Bool> insertValues(
             const Vector<Index3D>& keys, const Vector<typename BlockType::VoxelType*>& values) = 0;
-    // virtual Bool eraseValue(const Index3D key) = 0;
-    // virtual Vector<Bool> eraseValues(const Vector<Index3D>& keys) = 0;
+    virtual Vector<Bool> eraseValues(const Vector<Index3D>& keys) = 0;
     virtual size_t size() const = 0;
 
 protected:
@@ -96,6 +95,7 @@ public:
             const Vector<Index3D>& keys, const Vector<typename BlockType::VoxelType*>& values);
     virtual std::pair<Vector<Index3D>, Vector<typename BlockType::VoxelType*>> getAllKeyValues()
             const;
+    virtual Vector<Bool> eraseValues(const Vector<Index3D>& keys) override;
     virtual size_t size() const override { return hash_.size(); }
 
 protected:
