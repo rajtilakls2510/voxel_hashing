@@ -188,12 +188,12 @@ using namespace std::chrono;
 TEST(TestGpuHash, FindOneInsertManyFindMany) {
     std::shared_ptr<CudaStream> stream = std::make_shared<CudaStreamOwning>();
     std::shared_ptr<HashStrategy<FloatBlock>> hash =
-            std::make_shared<GPUHashStrategy<FloatBlock>>(stream, 5);
+            std::make_shared<GPUHashStrategy<FloatBlock>>(5);
 
     // Search for a non-existing value in the hash
     Vector<Index3D> indices_to_search(1, MemoryType::kHost);
     indices_to_search.data()[0] = Index3D(0, 1, 0);
-    auto find_result = hash->findValues(indices_to_search);
+    auto find_result = hash->findValues(indices_to_search, *stream);
     Vector<Bool>::Ptr found_h =
             Vector<Bool>::copyFrom(find_result.first, MemoryType::kHost, *stream);
     stream->synchronize();
@@ -210,11 +210,11 @@ TEST(TestGpuHash, FindOneInsertManyFindMany) {
         values_to_insert.data()[i] = f.release();
     }
     auto start_t = high_resolution_clock::now();
-    Vector<Bool> inserted = hash->insertValues(indices_to_insert, values_to_insert);
+    Vector<Bool> inserted = hash->insertValues(indices_to_insert, values_to_insert, *stream);
     auto end_t = high_resolution_clock::now();
     std::cout << "Time taken to insert " << num_values_to_insert
               << " values: " << duration_cast<microseconds>(end_t - start_t).count() << " us\n";
-    Vector<Bool>::Ptr inserted_h = Vector<Bool>::copyFrom(inserted, MemoryType::kHost);
+    Vector<Bool>::Ptr inserted_h = Vector<Bool>::copyFrom(inserted, MemoryType::kHost, *stream);
     stream->synchronize();
     for (size_t i = 0; i < num_values_to_insert; i++) {
         EXPECT_EQ(inserted_h->data()[i], 1);
@@ -226,7 +226,7 @@ TEST(TestGpuHash, FindOneInsertManyFindMany) {
     for (size_t i = 0; i < num_indices_to_search; i++) {
         indices_to_search2.data()[i] = Index3D(i, 0, 0);
     }
-    auto find_result2 = hash->findValues(indices_to_search2);
+    auto find_result2 = hash->findValues(indices_to_search2, *stream);
 
     Vector<Bool>::Ptr found_h2 =
             Vector<Bool>::copyFrom(find_result2.first, MemoryType::kHost, *stream);
@@ -246,7 +246,7 @@ TEST(TestGpuHash, FindOneInsertManyFindMany) {
 TEST(TestGpuHash, InsertManyGetAll) {
     std::shared_ptr<CudaStream> stream = std::make_shared<CudaStreamOwning>();
     std::shared_ptr<HashStrategy<FloatBlock>> hash =
-            std::make_shared<GPUHashStrategy<FloatBlock>>(stream, 5);
+            std::make_shared<GPUHashStrategy<FloatBlock>>(5);
 
     // Insert values
     size_t num_values_to_insert = 512;
@@ -258,8 +258,8 @@ TEST(TestGpuHash, InsertManyGetAll) {
         f.setVoxel(Index3D(0, 1, 0), i + 1);
         values_to_insert.data()[i] = f.release();
     }
-    Vector<Bool> inserted = hash->insertValues(indices_to_insert, values_to_insert);
-    Vector<Bool>::Ptr inserted_h = Vector<Bool>::copyFrom(inserted, MemoryType::kHost);
+    Vector<Bool> inserted = hash->insertValues(indices_to_insert, values_to_insert, *stream);
+    Vector<Bool>::Ptr inserted_h = Vector<Bool>::copyFrom(inserted, MemoryType::kHost, *stream);
     stream->synchronize();
     for (size_t i = 0; i < num_values_to_insert; i++) {
         EXPECT_EQ(inserted_h->data()[i], 1);
@@ -274,14 +274,14 @@ TEST(TestGpuHash, InsertManyGetAll) {
         f.setVoxel(Index3D(0, 1, 0), i - num_values_to_insert + 1);
         values_to_insert2.data()[i - num_values_to_insert] = f.release();
     }
-    Vector<Bool> inserted2 = hash->insertValues(indices_to_insert2, values_to_insert2);
-    Vector<Bool>::Ptr inserted_h2 = Vector<Bool>::copyFrom(inserted2, MemoryType::kHost);
+    Vector<Bool> inserted2 = hash->insertValues(indices_to_insert2, values_to_insert2, *stream);
+    Vector<Bool>::Ptr inserted_h2 = Vector<Bool>::copyFrom(inserted2, MemoryType::kHost, *stream);
     stream->synchronize();
     for (size_t i = 0; i < num_values_to_insert; i++) {
         EXPECT_EQ(inserted_h2->data()[i], 1);
     }
 
-    auto result = hash->getAllKeyValues();
+    auto result = hash->getAllKeyValues(*stream);
     Vector<Index3D>::Ptr all_keys =
             Vector<Index3D>::copyFrom(result.first, MemoryType::kHost, *stream);
     Vector<float*>::Ptr all_values =
@@ -306,7 +306,7 @@ TEST(TestGpuHash, InsertManyGetAll) {
 TEST(TestGpuHash, InsertManyEraseManyFindMany) {
     std::shared_ptr<CudaStream> stream = std::make_shared<CudaStreamOwning>();
     std::shared_ptr<HashStrategy<FloatBlock>> hash =
-            std::make_shared<GPUHashStrategy<FloatBlock>>(stream, 5);
+            std::make_shared<GPUHashStrategy<FloatBlock>>(5);
 
     // Insert values
     size_t num_values_to_insert = 1024;
@@ -318,8 +318,8 @@ TEST(TestGpuHash, InsertManyEraseManyFindMany) {
         f.setVoxel(Index3D(0, 1, 0), i + 1);
         values_to_insert.data()[i] = f.release();
     }
-    Vector<Bool> inserted = hash->insertValues(indices_to_insert, values_to_insert);
-    Vector<Bool>::Ptr inserted_h = Vector<Bool>::copyFrom(inserted, MemoryType::kHost);
+    Vector<Bool> inserted = hash->insertValues(indices_to_insert, values_to_insert, *stream);
+    Vector<Bool>::Ptr inserted_h = Vector<Bool>::copyFrom(inserted, MemoryType::kHost, *stream);
     stream->synchronize();
     for (size_t i = 0; i < num_values_to_insert; i++) {
         EXPECT_EQ(inserted_h->data()[i], 1);
@@ -331,15 +331,15 @@ TEST(TestGpuHash, InsertManyEraseManyFindMany) {
     for (size_t i = 0; i < num_values_to_erase; i++) {
         indices_to_erase.data()[i] = Index3D(i, 0, 0);
     }
-    Vector<Bool> erased = hash->eraseValues(indices_to_erase);
-    Vector<Bool>::Ptr erased_h = Vector<Bool>::copyFrom(erased, MemoryType::kHost);
+    Vector<Bool> erased = hash->eraseValues(indices_to_erase, *stream);
+    Vector<Bool>::Ptr erased_h = Vector<Bool>::copyFrom(erased, MemoryType::kHost, *stream);
     stream->synchronize();
     for (size_t i = 0; i < num_values_to_erase; i++) {
         EXPECT_EQ(erased_h->data()[i], 1);
     }
 
     // Find all keys and check if they exist in hash
-    auto result = hash->findValues(indices_to_insert);
+    auto result = hash->findValues(indices_to_insert, *stream);
     Vector<Bool>::Ptr found_h = Vector<Bool>::copyFrom(result.first, MemoryType::kHost, *stream);
     Vector<float*>::Ptr values_h =
             Vector<float*>::copyFrom(result.second, MemoryType::kHost, *stream);

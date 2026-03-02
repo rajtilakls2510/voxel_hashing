@@ -84,10 +84,8 @@ namespace voxhash {
 // }
 
 template <typename BlockType>
-GPUHashStrategy<BlockType>::GPUHashStrategy(
-        std::shared_ptr<CudaStream> cuda_stream, size_t num_increase_objects, MemoryType type)
-    : HashStrategy<BlockType>(cuda_stream),
-      num_increase_objects_(num_increase_objects),
+GPUHashStrategy<BlockType>::GPUHashStrategy(size_t num_increase_objects, MemoryType type)
+    : num_increase_objects_(num_increase_objects),
       current_objects_(num_increase_objects),
       type_(type) {
     hash_ = GPUHashMapType<BlockType>::createDeviceObject(current_objects_);
@@ -136,7 +134,8 @@ __global__ void insertValuesKernel(
 
 template <typename BlockType>
 std::pair<Vector<Bool>, Vector<typename BlockType::VoxelType*>>
-GPUHashStrategy<BlockType>::findValues(const Vector<Index3D>& keys) const {
+GPUHashStrategy<BlockType>::findValues(
+        const Vector<Index3D>& keys, const CudaStream& stream) const {
     size_t num_queries = keys.size();
 
     std::shared_ptr<Vector<Index3D>> keys_ptr = nullptr;
@@ -144,7 +143,7 @@ GPUHashStrategy<BlockType>::findValues(const Vector<Index3D>& keys) const {
     if (keys.location() == type_) {
         keys_data = keys.data();
     } else {
-        keys_ptr = Vector<Index3D>::copyFrom(keys, type_, *this->stream_);
+        keys_ptr = Vector<Index3D>::copyFrom(keys, type_, stream);
         keys_data = keys_ptr->data();
     }
 
@@ -152,17 +151,19 @@ GPUHashStrategy<BlockType>::findValues(const Vector<Index3D>& keys) const {
     Vector<Bool> found(num_queries, type_);
 
     int bpg = (num_queries + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
-    findValuesKernel<BlockType><<<bpg, THREADS_PER_BLOCK, 0, *this->stream_>>>(
+    findValuesKernel<BlockType><<<bpg, THREADS_PER_BLOCK, 0, stream>>>(
             keys_data, values.data(), found.data(), hash_, num_queries);
     CUDA_CHECK(cudaGetLastError());
-    this->stream_->synchronize();
+    stream.synchronize();
 
     return std::make_pair(std::move(found), std::move(values));
 }
 
 template <typename BlockType>
 Vector<Bool> GPUHashStrategy<BlockType>::insertValues(
-        const Vector<Index3D>& keys, const Vector<typename BlockType::VoxelType*>& values) {
+        const Vector<Index3D>& keys,
+        const Vector<typename BlockType::VoxelType*>& values,
+        const CudaStream& stream) {
     size_t num_queries = keys.size();
 
     // Check Load factor and recreate hash_ if total size exceeds current_objects
@@ -175,7 +176,7 @@ Vector<Bool> GPUHashStrategy<BlockType>::insertValues(
     if (keys.location() == type_) {
         keys_data = keys.data();
     } else {
-        keys_ptr = Vector<Index3D>::copyFrom(keys, type_, *this->stream_);
+        keys_ptr = Vector<Index3D>::copyFrom(keys, type_, stream);
         keys_data = keys_ptr->data();
     }
     std::shared_ptr<Vector<typename BlockType::VoxelType*>> values_ptr = nullptr;
@@ -183,18 +184,17 @@ Vector<Bool> GPUHashStrategy<BlockType>::insertValues(
     if (values.location() == type_) {
         values_data = values.data();
     } else {
-        values_ptr =
-                Vector<typename BlockType::VoxelType*>::copyFrom(values, type_, *this->stream_);
+        values_ptr = Vector<typename BlockType::VoxelType*>::copyFrom(values, type_, stream);
         values_data = values_ptr->data();
     }
 
     Vector<Bool> inserted(num_queries, type_);
 
     int bpg = (num_queries + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
-    insertValuesKernel<BlockType><<<bpg, THREADS_PER_BLOCK, 0, *this->stream_>>>(
+    insertValuesKernel<BlockType><<<bpg, THREADS_PER_BLOCK, 0, stream>>>(
             keys_data, values_data, inserted.data(), hash_, num_queries);
     CUDA_CHECK(cudaGetLastError());
-    this->stream_->synchronize();
+    stream.synchronize();
 
     return inserted;
 }
@@ -209,7 +209,7 @@ struct extract_kv {
 
 template <typename BlockType>
 std::pair<Vector<Index3D>, Vector<typename BlockType::VoxelType*>>
-GPUHashStrategy<BlockType>::getAllKeyValues() const {
+GPUHashStrategy<BlockType>::getAllKeyValues(const CudaStream& stream) const {
     Vector<Index3D> keys(hash_.size(), type_);
     Vector<typename BlockType::VoxelType*> values(hash_.size(), type_);
 
@@ -223,21 +223,21 @@ GPUHashStrategy<BlockType>::getAllKeyValues() const {
 }
 
 template <typename BlockType>
-void GPUHashStrategy<BlockType>::recreateHash(size_t increase_factor) {
+void GPUHashStrategy<BlockType>::recreateHash(size_t increase_factor, const CudaStream& stream) {
     std::cout << "Recreating hash with " << increase_factor << " objects\n";
     GPUHashMapType<BlockType> new_hash =
             GPUHashMapType<BlockType>::createDeviceObject(increase_factor);
 
-    auto result = getAllKeyValues();
+    auto result = getAllKeyValues(stream);
     size_t num_keys = result.first.size();
     if (num_keys > 0) {
         Vector<Bool> inserted(num_keys, type_);
 
         int bpg = (num_keys + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
-        insertValuesKernel<BlockType><<<bpg, THREADS_PER_BLOCK, 0, *this->stream_>>>(
+        insertValuesKernel<BlockType><<<bpg, THREADS_PER_BLOCK, 0, stream>>>(
                 result.first.data(), result.second.data(), inserted.data(), new_hash, num_keys);
         CUDA_CHECK(cudaGetLastError());
-        this->stream_->synchronize();
+        stream.synchronize();
     }
 
     GPUHashMapType<BlockType> old_hash = hash_;
@@ -255,7 +255,8 @@ __global__ void eraseKeysKernel(
 }
 
 template <typename BlockType>
-Vector<Bool> GPUHashStrategy<BlockType>::eraseValues(const Vector<Index3D>& keys) {
+Vector<Bool> GPUHashStrategy<BlockType>::eraseValues(
+        const Vector<Index3D>& keys, const CudaStream& stream) {
     size_t num_queries = keys.size();
 
     std::shared_ptr<Vector<Index3D>> keys_ptr = nullptr;
@@ -263,7 +264,7 @@ Vector<Bool> GPUHashStrategy<BlockType>::eraseValues(const Vector<Index3D>& keys
     if (keys.location() == type_) {
         keys_data = keys.data();
     } else {
-        keys_ptr = Vector<Index3D>::copyFrom(keys, type_, *this->stream_);
+        keys_ptr = Vector<Index3D>::copyFrom(keys, type_, stream);
         keys_data = keys_ptr->data();
     }
 
@@ -271,10 +272,10 @@ Vector<Bool> GPUHashStrategy<BlockType>::eraseValues(const Vector<Index3D>& keys
 
     if (num_queries > 0) {
         int bpg = (num_queries + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
-        eraseKeysKernel<BlockType><<<bpg, THREADS_PER_BLOCK, 0, *this->stream_>>>(
+        eraseKeysKernel<BlockType><<<bpg, THREADS_PER_BLOCK, 0, stream>>>(
                 keys_data, erased.data(), hash_, num_queries);
         CUDA_CHECK(cudaGetLastError());
-        this->stream_->synchronize();
+        stream.synchronize();
     }
     return erased;
 }

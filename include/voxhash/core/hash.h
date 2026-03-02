@@ -37,22 +37,23 @@ template <typename BlockType>
 class HashStrategy {
     // Interface to provide hashing functionality
 public:
-    explicit HashStrategy(
-            std::shared_ptr<CudaStream> cuda_stream = std::make_shared<CudaStreamOwning>())
-        : stream_(std::move(cuda_stream)) {}
+    explicit HashStrategy() {}
     virtual ~HashStrategy() = default;
 
     virtual std::pair<Vector<Bool>, Vector<typename BlockType::VoxelType*>> findValues(
-            const Vector<Index3D>& keys) const = 0;
-    virtual std::pair<Vector<Index3D>, Vector<typename BlockType::VoxelType*>> getAllKeyValues()
-            const = 0;
+            const Vector<Index3D>& keys, const CudaStream& stream = CudaStreamOwning()) const = 0;
+    virtual std::pair<Vector<Index3D>, Vector<typename BlockType::VoxelType*>> getAllKeyValues(
+            const CudaStream& stream = CudaStreamOwning()) const = 0;
     virtual Vector<Bool> insertValues(
-            const Vector<Index3D>& keys, const Vector<typename BlockType::VoxelType*>& values) = 0;
-    virtual Vector<Bool> eraseValues(const Vector<Index3D>& keys) = 0;
+            const Vector<Index3D>& keys,
+            const Vector<typename BlockType::VoxelType*>& values,
+            const CudaStream& stream = CudaStreamOwning()) = 0;
+    virtual Vector<Bool> eraseValues(
+            const Vector<Index3D>& keys, const CudaStream& stream = CudaStreamOwning()) = 0;
     virtual size_t size() const = 0;
 
 protected:
-    std::shared_ptr<CudaStream> stream_;
+    // std::shared_ptr<CudaStream> stream_;
 };
 
 // template <typename BlockType>
@@ -84,18 +85,18 @@ protected:
 template <typename BlockType>
 class GPUHashStrategy : public HashStrategy<BlockType> {
 public:
-    GPUHashStrategy(
-            std::shared_ptr<CudaStream> cuda_stream = std::make_shared<CudaStreamOwning>(),
-            size_t num_increase_objects = 1024,
-            MemoryType type = MemoryType::kDevice);
+    GPUHashStrategy(size_t num_increase_objects = 1024, MemoryType type = MemoryType::kDevice);
     virtual ~GPUHashStrategy() override;
     virtual std::pair<Vector<Bool>, Vector<typename BlockType::VoxelType*>> findValues(
-            const Vector<Index3D>& keys) const;
+            const Vector<Index3D>& keys, const CudaStream& stream = CudaStreamOwning()) const;
     virtual Vector<Bool> insertValues(
-            const Vector<Index3D>& keys, const Vector<typename BlockType::VoxelType*>& values);
-    virtual std::pair<Vector<Index3D>, Vector<typename BlockType::VoxelType*>> getAllKeyValues()
-            const;
-    virtual Vector<Bool> eraseValues(const Vector<Index3D>& keys) override;
+            const Vector<Index3D>& keys,
+            const Vector<typename BlockType::VoxelType*>& values,
+            const CudaStream& stream = CudaStreamOwning());
+    virtual std::pair<Vector<Index3D>, Vector<typename BlockType::VoxelType*>> getAllKeyValues(
+            const CudaStream& stream = CudaStreamOwning()) const;
+    virtual Vector<Bool> eraseValues(
+            const Vector<Index3D>& keys, const CudaStream& stream = CudaStreamOwning()) override;
     virtual size_t size() const override { return hash_.size(); }
 
 protected:
@@ -103,7 +104,7 @@ protected:
     GPUHashMapType<BlockType> hash_;
     MemoryType type_{MemoryType::kDevice};
 
-    void recreateHash(size_t increase_factor);
+    void recreateHash(size_t increase_factor, const CudaStream& stream = CudaStreamOwning());
 };
 
 }  // namespace voxhash
