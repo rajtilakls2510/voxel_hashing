@@ -3,85 +3,88 @@
 
 namespace voxhash {
 
-// template <typename BlockType>
-// bool CPUHashStrategy<BlockType>::findValue(
-//         const Index3D key, typename BlockType::Ptr& value) const {
-//     const auto it = hash_.find(key);
-//     if (it == hash_.end()) return false;
-//     value = it->second;
-//     return true;
-// }
+template <typename BlockType>
+std::pair<Vector<Bool>, Vector<typename BlockType::VoxelType*>>
+CPUHashStrategy<BlockType>::findValues(
+        const Vector<Index3D>& keys, const CudaStream& stream) const {
+    size_t num_queries = keys.size();
 
-// template <typename BlockType>
-// void CPUHashStrategy<BlockType>::findValues(
-//         const std::vector<Index3D> keys,
-//         std::vector<typename BlockType::Ptr>& values,
-//         std::vector<bool>& found) const {
-//     found.resize(keys.size());
-//     values.resize(keys.size());
+    std::shared_ptr<Vector<Index3D>> keys_ptr = nullptr;
+    Index3D* keys_data = optionallyCopyDataPtr<Index3D>(keys, type_, keys_ptr, stream);
 
-//     for (size_t idx = 0; idx < keys.size(); idx++) found[idx] = findValue(keys[idx],
-//     values[idx]);
-// }
+    Vector<typename BlockType::VoxelType*> values(num_queries, type_);
+    Vector<Bool> found(num_queries, type_);
 
-// template <typename BlockType>
-// std::vector<Index3D> CPUHashStrategy<BlockType>::getAllKeys() const {
-//     std::vector<Index3D> indices;
-//     indices.reserve(hash_.size());
+    for (size_t idx = 0; idx < num_queries; idx++) {
+        const auto it = hash_.find(keys_data[idx]);
+        if (it == hash_.end()) {
+            found.data()[idx] = 0;
+            values.data()[idx] = nullptr;
+        } else {
+            found.data()[idx] = 1;
+            values.data()[idx] = it->second;
+        }
+    }
 
-//     for (const auto& kv : hash_) {
-//         indices.push_back(kv.first);
-//     }
-//     return indices;
-// }
+    return std::make_pair(std::move(found), std::move(values));
+}
 
-// template <typename BlockType>
-// std::vector<typename BlockType::Ptr> CPUHashStrategy<BlockType>::getAllValues() const {
-//     std::vector<typename BlockType::Ptr> ptrs;
-//     ptrs.reserve(hash_.size());
+template <typename BlockType>
+Vector<Bool> CPUHashStrategy<BlockType>::insertValues(
+        const Vector<Index3D>& keys,
+        const Vector<typename BlockType::VoxelType*>& values,
+        const CudaStream& stream) {
+    size_t num_queries = keys.size();
 
-//     for (const auto& kv : hash_) {
-//         ptrs.push_back(kv.second);
-//     }
-//     return ptrs;
-// }
+    std::shared_ptr<Vector<Index3D>> keys_ptr = nullptr;
+    Index3D* keys_data = optionallyCopyDataPtr<Index3D>(keys, type_, keys_ptr, stream);
+    std::shared_ptr<Vector<typename BlockType::VoxelType*>> values_ptr = nullptr;
+    typename BlockType::VoxelType** values_data =
+            optionallyCopyDataPtr<typename BlockType::VoxelType*>(
+                    values, type_, values_ptr, stream);
 
-// template <typename BlockType>
-// bool CPUHashStrategy<BlockType>::insertValue(
-//         const Index3D key, const typename BlockType::Ptr value) {
-//     const auto it = hash_.find(key);
-//     if (it != hash_.end())  // Reject insertion if a value already exists
-//         return value == it->second;
-//     hash_[key] = value;
-//     return true;
-// }
+    Vector<Bool> inserted(num_queries, type_);
 
-// template <typename BlockType>
-// void CPUHashStrategy<BlockType>::insertValues(
-//         const std::vector<Index3D> keys,
-//         const std::vector<typename BlockType::Ptr> values,
-//         std::vector<bool>& inserted) {
-//     inserted.resize(keys.size());
+    for (size_t idx = 0; idx < num_queries; idx++) {
+        auto result = hash_.emplace(keys_data[idx], values_data[idx]);
+        inserted[idx] = result.second ? 1 : 0;
+    }
 
-//     for (size_t idx = 0; idx < keys.size(); idx++)
-//         inserted[idx] = insertValue(keys[idx], values[idx]);
-// }
+    return inserted;
+}
 
-// template <typename BlockType>
-// bool CPUHashStrategy<BlockType>::eraseValue(const Index3D key) {
-//     const auto it = hash_.find(key);
-//     if (it == hash_.end()) return true;
-//     hash_.erase(it);
-//     return true;
-// }
+template <typename BlockType>
+std::pair<Vector<Index3D>, Vector<typename BlockType::VoxelType*>>
+CPUHashStrategy<BlockType>::getAllKeyValues(const CudaStream& stream) const {
+    Vector<Index3D> keys(hash_.size(), type_);
+    Vector<typename BlockType::VoxelType*> values(hash_.size(), type_);
 
-// template <typename BlockType>
-// void CPUHashStrategy<BlockType>::eraseValues(
-//         const std::vector<Index3D> keys, std::vector<bool>& erased) {
-//     erased.resize(keys.size());
+    size_t idx = 0;
+    for (const auto& kv : hash_) {
+        keys.data()[idx] = kv.first;
+        values.data()[idx] = kv.second;
+        ++idx;
+    }
 
-//     for (size_t idx = 0; idx < keys.size(); idx++) erased[idx] = eraseValue(keys[idx]);
-// }
+    return std::make_pair(std::move(keys), std::move(values));
+}
+
+template <typename BlockType>
+Vector<Bool> CPUHashStrategy<BlockType>::eraseValues(
+        const Vector<Index3D>& keys, const CudaStream& stream) {
+    size_t num_queries = keys.size();
+
+    std::shared_ptr<Vector<Index3D>> keys_ptr = nullptr;
+    Index3D* keys_data = optionallyCopyDataPtr<Index3D>(keys, type_, keys_ptr, stream);
+
+    Vector<Bool> erased(num_queries, type_);
+
+    for (size_t idx = 0; idx < num_queries; idx++) {
+        erased[idx] = hash_.erase(keys_data[idx]) ? 1 : 0;
+    }
+
+    return erased;
+}
 
 template <typename BlockType>
 GPUHashStrategy<BlockType>::GPUHashStrategy(size_t num_increase_objects, MemoryType type)
@@ -133,19 +136,29 @@ __global__ void insertValuesKernel(
 }
 
 template <typename BlockType>
+struct extract_kv {
+    __host__ __device__ thrust::tuple<Index3D, typename BlockType::VoxelType*> operator()(
+            const stdgpu::pair<const Index3D, typename BlockType::VoxelType*>& p) const {
+        return thrust::make_tuple(p.first, p.second);
+    }
+};
+
+template <typename BlockType>
+__global__ void eraseKeysKernel(
+        Index3D* keys, Bool* erased, GPUHashMapType<BlockType> map, size_t num_keys) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= num_keys) return;
+    erased[i] = map.erase(keys[i]);
+}
+
+template <typename BlockType>
 std::pair<Vector<Bool>, Vector<typename BlockType::VoxelType*>>
 GPUHashStrategy<BlockType>::findValues(
         const Vector<Index3D>& keys, const CudaStream& stream) const {
     size_t num_queries = keys.size();
 
     std::shared_ptr<Vector<Index3D>> keys_ptr = nullptr;
-    Index3D* keys_data = nullptr;
-    if (keys.location() == type_) {
-        keys_data = keys.data();
-    } else {
-        keys_ptr = Vector<Index3D>::copyFrom(keys, type_, stream);
-        keys_data = keys_ptr->data();
-    }
+    Index3D* keys_data = optionallyCopyDataPtr<Index3D>(keys, type_, keys_ptr, stream);
 
     Vector<typename BlockType::VoxelType*> values(num_queries, type_);
     Vector<Bool> found(num_queries, type_);
@@ -172,21 +185,11 @@ Vector<Bool> GPUHashStrategy<BlockType>::insertValues(
                 std::max(num_queries + current_objects_, current_objects_ + num_increase_objects_));
 
     std::shared_ptr<Vector<Index3D>> keys_ptr = nullptr;
-    Index3D* keys_data = nullptr;
-    if (keys.location() == type_) {
-        keys_data = keys.data();
-    } else {
-        keys_ptr = Vector<Index3D>::copyFrom(keys, type_, stream);
-        keys_data = keys_ptr->data();
-    }
+    Index3D* keys_data = optionallyCopyDataPtr<Index3D>(keys, type_, keys_ptr, stream);
     std::shared_ptr<Vector<typename BlockType::VoxelType*>> values_ptr = nullptr;
-    typename BlockType::VoxelType** values_data = nullptr;
-    if (values.location() == type_) {
-        values_data = values.data();
-    } else {
-        values_ptr = Vector<typename BlockType::VoxelType*>::copyFrom(values, type_, stream);
-        values_data = values_ptr->data();
-    }
+    typename BlockType::VoxelType** values_data =
+            optionallyCopyDataPtr<typename BlockType::VoxelType*>(
+                    values, type_, values_ptr, stream);
 
     Vector<Bool> inserted(num_queries, type_);
 
@@ -198,14 +201,6 @@ Vector<Bool> GPUHashStrategy<BlockType>::insertValues(
 
     return inserted;
 }
-
-template <typename BlockType>
-struct extract_kv {
-    __host__ __device__ thrust::tuple<Index3D, typename BlockType::VoxelType*> operator()(
-            const stdgpu::pair<const Index3D, typename BlockType::VoxelType*>& p) const {
-        return thrust::make_tuple(p.first, p.second);
-    }
-};
 
 template <typename BlockType>
 std::pair<Vector<Index3D>, Vector<typename BlockType::VoxelType*>>
@@ -247,26 +242,12 @@ void GPUHashStrategy<BlockType>::recreateHash(size_t increase_factor, const Cuda
 }
 
 template <typename BlockType>
-__global__ void eraseKeysKernel(
-        Index3D* keys, Bool* erased, GPUHashMapType<BlockType> map, size_t num_keys) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= num_keys) return;
-    erased[i] = map.erase(keys[i]);
-}
-
-template <typename BlockType>
 Vector<Bool> GPUHashStrategy<BlockType>::eraseValues(
         const Vector<Index3D>& keys, const CudaStream& stream) {
     size_t num_queries = keys.size();
 
     std::shared_ptr<Vector<Index3D>> keys_ptr = nullptr;
-    Index3D* keys_data = nullptr;
-    if (keys.location() == type_) {
-        keys_data = keys.data();
-    } else {
-        keys_ptr = Vector<Index3D>::copyFrom(keys, type_, stream);
-        keys_data = keys_ptr->data();
-    }
+    Index3D* keys_data = optionallyCopyDataPtr<Index3D>(keys, type_, keys_ptr, stream);
 
     Vector<Bool> erased(num_queries, type_);
 
@@ -280,11 +261,25 @@ Vector<Bool> GPUHashStrategy<BlockType>::eraseValues(
     return erased;
 }
 
+template <typename T>
+T* optionallyCopyDataPtr(
+        const Vector<T>& vec,
+        MemoryType target_type,
+        std::shared_ptr<Vector<T>>& holder,
+        const CudaStream& stream) {
+    if (vec.location() == target_type) {
+        return vec.data();
+    }
+
+    holder = Vector<T>::copyFrom(vec, target_type, stream);
+    return holder->data();
+}
+
 template class HashStrategy<Block<int>>;
 template class HashStrategy<Block<float>>;
 
-// template class CPUHashStrategy<Block<int>>;
-// template class CPUHashStrategy<Block<float>>;
+template class CPUHashStrategy<Block<int>>;
+template class CPUHashStrategy<Block<float>>;
 
 template class GPUHashStrategy<Block<int>>;
 template class GPUHashStrategy<Block<float>>;

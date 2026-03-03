@@ -51,36 +51,31 @@ public:
     virtual Vector<Bool> eraseValues(
             const Vector<Index3D>& keys, const CudaStream& stream = CudaStreamOwning()) = 0;
     virtual size_t size() const = 0;
-
-protected:
-    // std::shared_ptr<CudaStream> stream_;
 };
 
-// template <typename BlockType>
-// class CPUHashStrategy : public HashStrategy<BlockType> {
-// public:
-//     CPUHashStrategy() : HashStrategy<BlockType>() {}
-//     virtual ~CPUHashStrategy() {}
+template <typename BlockType>
+class CPUHashStrategy : public HashStrategy<BlockType> {
+public:
+    CPUHashStrategy(MemoryType type = MemoryType::kHost) : HashStrategy<BlockType>(), type_(type) {}
+    virtual ~CPUHashStrategy() {}
 
-//     virtual bool findValue(const Index3D key, typename BlockType::Ptr& value) const override;
-//     virtual void findValues(
-//             const std::vector<Index3D> keys,
-//             std::vector<typename BlockType::Ptr>& values,
-//             std::vector<bool>& found) const override;
-//     virtual std::vector<Index3D> getAllKeys() const;
-//     virtual std::vector<typename BlockType::Ptr> getAllValues() const;
-//     virtual bool insertValue(const Index3D key, const typename BlockType::Ptr value) override;
-//     virtual void insertValues(
-//             const std::vector<Index3D> keys,
-//             const std::vector<typename BlockType::Ptr> values,
-//             std::vector<bool>& inserted);
-//     virtual bool eraseValue(const Index3D key) override;
-//     virtual void eraseValues(const std::vector<Index3D> keys, std::vector<bool>& erased)
-//     override; virtual size_t size() const override { return hash_.size(); }
+    virtual std::pair<Vector<Bool>, Vector<typename BlockType::VoxelType*>> findValues(
+            const Vector<Index3D>& keys,
+            const CudaStream& stream = CudaStreamOwning()) const override;
+    virtual Vector<Bool> insertValues(
+            const Vector<Index3D>& keys,
+            const Vector<typename BlockType::VoxelType*>& values,
+            const CudaStream& stream = CudaStreamOwning()) override;
+    virtual std::pair<Vector<Index3D>, Vector<typename BlockType::VoxelType*>> getAllKeyValues(
+            const CudaStream& stream = CudaStreamOwning()) const override;
+    virtual Vector<Bool> eraseValues(
+            const Vector<Index3D>& keys, const CudaStream& stream = CudaStreamOwning()) override;
+    virtual size_t size() const override { return hash_.size(); }
 
-// protected:
-//     Index3DHashMapType<BlockType> hash_;
-// };
+protected:
+    CPUHashMapType<BlockType> hash_;
+    MemoryType type_{MemoryType::kHost};
+};
 
 template <typename BlockType>
 class GPUHashStrategy : public HashStrategy<BlockType> {
@@ -106,5 +101,12 @@ protected:
 
     void recreateHash(size_t increase_factor, const CudaStream& stream = CudaStreamOwning());
 };
+
+template <typename T>
+T* optionallyCopyDataPtr(
+        const Vector<T>& vec,
+        MemoryType target_type,
+        std::shared_ptr<Vector<T>>& holder,
+        const CudaStream& stream = CudaStreamOwning());
 
 }  // namespace voxhash
